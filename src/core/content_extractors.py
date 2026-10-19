@@ -666,23 +666,25 @@ class ImageExtractor(BaseExtractor):
         try:
             from PIL import Image, ExifTags
 
-            # 1. Google Gemini AI Vision
-            if config and getattr(config, "enable_google_ai", False):
-                api_key = getattr(config, "google_api_key", "").strip()
+            # 1. AI Vision (Groq Cloud or Google Gemini)
+            if config and (getattr(config, "enable_google_ai", False) or getattr(config, "enable_ai_vision", False)):
+                api_key = getattr(config, "google_api_key", "").strip() or getattr(config, "groq_api_key", "").strip()
                 if api_key:
-                    from src.core.ai_vision import analyze_image_with_google_ai
-                    model = getattr(config, "google_ai_model", "gemini-1.5-flash")
-                    ai_title, ai_error = analyze_image_with_google_ai(file_path, api_key=api_key, model=model)
+                    from src.core.ai_vision import analyze_image_with_ai
+                    provider = getattr(config, "ai_provider", "auto")
+                    model = getattr(config, "google_ai_model", None)
+                    ai_title, ai_error, provider_used = analyze_image_with_ai(file_path, api_key=api_key, provider=provider, model=model)
                     if ai_title:
                         return ExtractionResult(
                             title=ai_title,
-                            summary=f"Google AI Vision: {ai_title}",
-                            explanation=f"Visual content recognized by Google AI: '{ai_title}'",
+                            summary=f"{provider_used} Vision: {ai_title}",
+                            explanation=f"Visual content recognized by {provider_used}: '{ai_title}'",
                             file_type="Image",
                             is_supported=True
                         )
 
             # 2. Local EXIF metadata inspection
+            Image.MAX_IMAGE_PIXELS = None
             with Image.open(str(file_path)) as img:
                 width, height = img.size
                 img_format = img.format or "Image"

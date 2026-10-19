@@ -105,7 +105,7 @@ class TestAIVision:
         res = extractor.extract(img_path, config=config)
 
         assert res.title == "Cloud Architecture Diagram"
-        assert "Google AI" in res.explanation
+        assert "Google" in res.explanation
 
     @patch("requests.post")
     def test_verify_google_api_key_helper(self, mock_post):
@@ -119,4 +119,51 @@ class TestAIVision:
         mock_resp.status_code = 403
         mock_resp.json.return_value = {"error": {"message": "Permission denied"}}
         valid2, msg2 = verify_google_api_key("bad_key")
+        assert valid2 is False
+
+    def test_detect_ai_provider(self):
+        from src.core.ai_vision import detect_ai_provider
+        assert detect_ai_provider("gsk_12345") == "groq"
+        assert detect_ai_provider("AIzaSy12345") == "google"
+        assert detect_ai_provider("custom_key", provider="groq") == "groq"
+        assert detect_ai_provider("custom_key", provider="google") == "google"
+
+    @patch("requests.post")
+    def test_analyze_image_with_groq_success(self, mock_post, tmp_path):
+        from src.core.ai_vision import analyze_image_with_groq
+        img_path = tmp_path / "forest.jpg"
+        img = Image.new("RGB", (100, 100), color="green")
+        img.save(str(img_path))
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "choices": [
+                {
+                    "message": {
+                        "content": "Pine Forest Mountain Trail"
+                    }
+                }
+            ]
+        }
+        mock_post.return_value = mock_resp
+
+        title, err = analyze_image_with_groq(img_path, api_key="gsk_valid_key")
+        assert err is None
+        assert title == "Pine Forest Mountain Trail"
+
+    @patch("requests.post")
+    def test_verify_groq_api_key_helper(self, mock_post):
+        from src.core.ai_vision import verify_groq_api_key
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_post.return_value = mock_resp
+
+        valid, msg = verify_groq_api_key("gsk_valid_key")
+        assert valid is True
+        assert "Groq Cloud" in msg
+
+        mock_resp.status_code = 401
+        mock_resp.json.return_value = {"error": {"message": "Invalid API Key"}}
+        valid2, msg2 = verify_groq_api_key("gsk_invalid_key")
         assert valid2 is False

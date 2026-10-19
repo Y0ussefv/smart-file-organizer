@@ -158,22 +158,40 @@ class SettingsDialog(QDialog):
         ai_layout.addWidget(self.check_google_ai)
 
         ai_notice = QLabel(
-            "Privacy Notice: Visual content from images will be sent to Google's Gemini API "
-            "to generate descriptive filenames (e.g. photos, diagrams, screenshots). All documents remain 100% local."
+            "Privacy Notice: Visual content from images is sent securely to your selected AI provider "
+            "(Groq Cloud or Google Gemini) to generate descriptive filenames. All documents remain 100% local."
         )
         ai_notice.setWordWrap(True)
         ai_notice.setStyleSheet("color: #a5adcb; font-size: 11px;")
         ai_layout.addWidget(ai_notice)
 
+        # Provider selector
+        prov_row = QHBoxLayout()
+        prov_row.addWidget(QLabel("AI Provider:"))
+        self.cb_ai_provider = QComboBox()
+        self.cb_ai_provider.addItem("Auto-Detect from API Key", "auto")
+        self.cb_ai_provider.addItem("Groq Cloud (Free & Ultra-Fast)", "groq")
+        self.cb_ai_provider.addItem("Google Gemini (AI Studio)", "google")
+        cur_prov = self.settings.get("ai_provider", "auto")
+        idx = self.cb_ai_provider.findData(cur_prov)
+        if idx != -1:
+            self.cb_ai_provider.setCurrentIndex(idx)
+        self.cb_ai_provider.currentIndexChanged.connect(self._on_provider_changed)
+        prov_row.addWidget(self.cb_ai_provider)
+        prov_row.addStretch()
+        ai_layout.addLayout(prov_row)
+
         # API Key input & Test Button
-        key_label = QLabel("Google Gemini API Key:")
-        key_label.setStyleSheet("font-weight: 600; font-size: 12px;")
-        ai_layout.addWidget(key_label)
+        self.key_label = QLabel("API Key (Groq gsk_... or Google AI Studio):")
+        self.key_label.setStyleSheet("font-weight: 600; font-size: 12px;")
+        ai_layout.addWidget(self.key_label)
 
         key_row = QHBoxLayout()
-        self.edit_api_key = QLineEdit(self.settings.get("google_api_key", ""))
+        # Default to groq_api_key if set, else google_api_key
+        saved_key = self.settings.get("groq_api_key", "") or self.settings.get("google_api_key", "")
+        self.edit_api_key = QLineEdit(saved_key)
         self.edit_api_key.setEchoMode(QLineEdit.EchoMode.Password)
-        self.edit_api_key.setPlaceholderText("Paste your AI Studio / Gemini API Key here (AIzaSy...)")
+        self.edit_api_key.setPlaceholderText("Paste your Groq (gsk_...) or Gemini API key here")
 
         self.btn_toggle_key = QPushButton("👁️")
         self.btn_toggle_key.setFixedWidth(36)
@@ -192,11 +210,7 @@ class SettingsDialog(QDialog):
         model_row = QHBoxLayout()
         model_row.addWidget(QLabel("Vision Model:"))
         self.cb_ai_model = QComboBox()
-        self.cb_ai_model.addItems(["gemini-3.8-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-3.5-flash-lite"])
-        cur_model = self.settings.get("google_ai_model", "gemini-3.8-flash")
-        if cur_model not in ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-3.5-flash-lite"]:
-            cur_model = "gemini-3.8-flash"
-        self.cb_ai_model.setCurrentText(cur_model)
+        self._populate_models_for_provider(self.cb_ai_provider.currentData())
         model_row.addWidget(self.cb_ai_model)
         model_row.addStretch()
         ai_layout.addLayout(model_row)
@@ -229,6 +243,29 @@ class SettingsDialog(QDialog):
         btn_row.addWidget(btn_save)
         layout.addLayout(btn_row)
 
+    def _populate_models_for_provider(self, provider_id: str):
+        self.cb_ai_model.clear()
+        if provider_id == "groq":
+            self.cb_ai_model.addItems(["qwen/qwen3.8-27b"])
+        elif provider_id == "google":
+            self.cb_ai_model.addItems(["gemini-3.8-flash", "gemini-3.5-flash", "gemini-flash-latest"])
+        else:
+            # Auto
+            self.cb_ai_model.addItems(["qwen/qwen3.8-27b (Groq)", "gemini-3.8-flash (Google)", "gemini-flash-latest"])
+
+    def _on_provider_changed(self, idx: int):
+        prov = self.cb_ai_provider.currentData()
+        self._populate_models_for_provider(prov)
+        if prov == "groq":
+            self.key_label.setText("Groq Cloud API Key (gsk_...):")
+            self.edit_api_key.setPlaceholderText("Paste your Groq API Key (gsk_...)")
+        elif prov == "google":
+            self.key_label.setText("Google Gemini API Key (AIzaSy...):")
+            self.edit_api_key.setPlaceholderText("Paste your Google AI Studio API Key (AIzaSy...)")
+        else:
+            self.key_label.setText("API Key (Auto-detects Groq gsk_... or Google AI Studio):")
+            self.edit_api_key.setPlaceholderText("Paste your Groq (gsk_...) or Gemini API key here")
+
     def _toggle_key_visibility(self):
         if self.edit_api_key.echoMode() == QLineEdit.EchoMode.Password:
             self.edit_api_key.setEchoMode(QLineEdit.EchoMode.Normal)
@@ -238,14 +275,16 @@ class SettingsDialog(QDialog):
     def _test_api_key(self):
         key = self.edit_api_key.text().strip()
         if not key:
-            QMessageBox.warning(self, "API Key Missing", "Please enter a Google Gemini API Key first.")
+            QMessageBox.warning(self, "API Key Missing", "Please enter an API Key first.")
             return
 
-        from src.core.ai_vision import verify_google_api_key
-        model = self.cb_ai_model.currentText()
+        from src.core.ai_vision import verify_ai_api_key
+        prov = self.cb_ai_provider.currentData()
+        raw_model = self.cb_ai_model.currentText().split(" ")[0]
+
         self.btn_test_api.setEnabled(False)
         self.btn_test_api.setText("Testing...")
-        success, msg = verify_google_api_key(key, model=model)
+        success, msg = verify_ai_api_key(key, provider=prov, model=raw_model)
         self.btn_test_api.setEnabled(True)
         self.btn_test_api.setText("⚡ Test API Key")
 
@@ -267,9 +306,16 @@ class SettingsDialog(QDialog):
         self.settings.set("preserve_extension", self.check_preserve_ext.isChecked())
         self.settings.set("recursive", self.check_recursive.isChecked())
         self.settings.set("max_file_size_mb", self.spin_max_size.value())
+        prov = self.cb_ai_provider.currentData()
+        key_val = self.edit_api_key.text().strip()
+        model_val = self.cb_ai_model.currentText().split(" ")[0]
+
+        self.settings.set("ai_provider", prov)
         self.settings.set("enable_google_ai", self.check_google_ai.isChecked())
-        self.settings.set("google_api_key", self.edit_api_key.text().strip())
-        self.settings.set("google_ai_model", self.cb_ai_model.currentText())
+        self.settings.set("google_api_key", key_val)
+        if key_val.startswith("gsk_") or prov == "groq":
+            self.settings.set("groq_api_key", key_val)
+        self.settings.set("google_ai_model", model_val)
         self.settings.set("rename_unlabelled_images", self.check_unlabelled_images.isChecked())
         self.settings.set("export_dir", self.edit_export_dir.text().strip())
         self.accept()

@@ -57,8 +57,11 @@ class ScanConfig:
     include_hidden: bool = False
     enable_ocr: bool = False
     enable_google_ai: bool = False
+    ai_provider: str = "auto"
     google_api_key: str = ""
-    google_ai_model: str = "gemini-1.5-flash"
+    google_ai_model: str = "gemini-3.8-flash"
+    groq_api_key: str = ""
+    groq_model: str = "qwen/qwen3.8-27b"
     rename_unlabelled_images: bool = False
     max_file_size_mb: int = 100
     export_dir: Optional[Path] = None
@@ -76,8 +79,11 @@ class ScanConfig:
             "include_hidden": self.include_hidden,
             "enable_ocr": self.enable_ocr,
             "enable_google_ai": self.enable_google_ai,
+            "ai_provider": self.ai_provider,
             "google_api_key": self.google_api_key,
             "google_ai_model": self.google_ai_model,
+            "groq_api_key": self.groq_api_key,
+            "groq_model": self.groq_model,
             "rename_unlabelled_images": self.rename_unlabelled_images,
             "max_file_size_mb": self.max_file_size_mb,
             "export_dir": str(self.export_dir) if self.export_dir else None,
@@ -97,8 +103,11 @@ class ScanConfig:
             include_hidden=data.get("include_hidden", False),
             enable_ocr=data.get("enable_ocr", False),
             enable_google_ai=data.get("enable_google_ai", False),
+            ai_provider=data.get("ai_provider", "auto"),
             google_api_key=data.get("google_api_key", ""),
-            google_ai_model=data.get("google_ai_model", "gemini-1.5-flash"),
+            google_ai_model=data.get("google_ai_model", "gemini-3.8-flash"),
+            groq_api_key=data.get("groq_api_key", ""),
+            groq_model=data.get("groq_model", "qwen/qwen3.8-27b"),
             rename_unlabelled_images=data.get("rename_unlabelled_images", False),
             max_file_size_mb=data.get("max_file_size_mb", 100),
             export_dir=Path(data["export_dir"]) if data.get("export_dir") else None,
