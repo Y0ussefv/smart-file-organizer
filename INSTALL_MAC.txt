@@ -4,44 +4,55 @@
 
 Prerequisites:
   - macOS 11 or higher (Intel or Apple Silicon M1/M2/M3/M4)
-  - Python 3.10+ (If you don't have it, run: brew install python)
+  - Python 3.10+ (Check with: python3 --version)
+    If you don't have Python, download the official installer:
+    https://www.python.org/downloads/mac-osx/
+    or run: brew install python
 
 ----------------------------------------------------------------------
-FAST INSTALL (4 SIMPLE STEPS)
+FAST INSTALL (RUN IN TERMINAL ONE BY ONE)
 ----------------------------------------------------------------------
 
 1. Open Terminal (Press Cmd + Space, type "Terminal", hit Enter)
 
-2. Go to the project folder:
-   cd /path/to/smart-file-organizer
+2. Make sure you are in the project folder:
+   cd smart-file-organizer-main
 
-3. Create & activate a virtual environment:
+3. Create virtual environment (ATTENTION: keep a SPACE between python3 and -m):
    python3 -m venv venv
+
+4. Activate the virtual environment:
    source venv/bin/activate
 
-4. Install dependencies:
+   (Once activated, your terminal prompt will show "(venv)")
+
+5. Install dependencies:
    pip install -r requirements.txt
 
-5. Run the app:
+   (Or: python3 -m pip install -r requirements.txt)
+
+6. Run the app:
    python3 main.py
 
 
 ----------------------------------------------------------------------
-USEFUL COMMANDS
+COMMON ERRORS & QUICK FIXES
 ----------------------------------------------------------------------
 
-* Run all tests:
-  python3 -m pytest tests/
+* ERROR: "zsh: command not found: python3-m"
+  FIX: You forgot the SPACE!
+       Write: python3 -m venv venv
+       (NOT python3-m)
 
-* Build standalone Mac app (.app):
-  chmod +x build_scripts/build_macos.sh
-  ./build_scripts/build_macos.sh
+* ERROR: "zsh: command not found: pip"
+  FIX: You must activate the environment first:
+       source venv/bin/activate
+       Then run: pip install -r requirements.txt
 
-* If macOS Gatekeeper says "cannot be opened because developer cannot be verified":
-  xattr -cr dist/SmartFileOrganizer.app
-
-* Folder Permissions:
-  When the app asks for access to Documents/Downloads/Desktop,
-  click "OK / Allow".
+* ERROR: "zsh: command not found: python3"
+  FIX: Python 3 is not installed on your Mac yet.
+       1. Download the macOS installer from: https://www.python.org/downloads/
+       2. Run the .pkg installer.
+       3. Restart Terminal and try again.
 
 ======================================================================
