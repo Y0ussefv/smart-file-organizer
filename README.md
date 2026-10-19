@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![GUI](https://img.shields.io/badge/GUI-PySide6%20(Qt6)-green.svg)](https://wiki.qt.io/Qt_for_Python)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/Tests-40%20Passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-55%20Passed-brightgreen.svg)]()
 
 **Smart File Organizer** is a desktop application that scans directories, reads document contents and metadata, generates concise descriptive filenames, renames files safely, and produces detailed audit reports (CSV, TXT, JSON).
 
@@ -54,11 +54,14 @@ It runs on **Windows, macOS, and Linux** with a graphical interface requiring ze
 | **Word Documents** | `.docx` | Core properties + Title/Heading styles + opening paragraphs via `python-docx`. |
 | **Excel Spreadsheets** | `.xlsx` | Workbook title + worksheet names + column headers via `openpyxl`. |
 | **PowerPoint** | `.pptx` | Presentation title + slide 1 header and text shapes via `python-pptx`. |
-| **Text & Markup** | `.txt`, `.md`, `.json`, `.csv`, `.xml`, `.html`, `.yaml` | Markdown `#` headers, YAML frontmatter, HTML `<title>`, JSON top keys, CSV headers with chunked safe streaming. |
-| **Source Code** | `.py`, `.js`, `.ts`, `.java`, `.cpp`, `.cs`, `.go`, `.rs`, `.sql` | Module docstrings, leading comments, primary class/interface definitions. |
-| **Images** | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.tiff` | EXIF metadata (camera, description, date) or **Google Gemini Vision AI** (scenes, screenshots, charts, objects). |
-| **Archives** | `.zip`, `.tar`, `.tar.gz`, `.tar.bz2` | Internal package/directory root names without extracting files to disk. |
-| **Fallback** | All other formats | Safe metadata inspection; preserves original filename for data safety. |
+| **Text, Web & Config** | `.txt`, `.md`, `.json`, `.csv`, `.tsv`, `.xml`, `.html`, `.svg`, `.url`, `.tex`, `.yaml`, `.toml`, `.ini` | Markdown `#` headers, YAML frontmatter, HTML `<title>`, SVG `<title>`, URL shortcut domains, LaTeX `\title`, JSON top keys, CSV headers with chunked safe streaming. |
+| **Source Code & Shaders** | `.py`, `.js`, `.ts`, `.java`, `.cpp`, `.cs`, `.go`, `.rs`, `.sql`, `.frag`, `.vert`, `.glsl`, `.hlsl`, `.dart` | Module docstrings, leading comments, primary class/interface definitions, shader descriptions, and pipeline stages. |
+| **Executables & Installers** | `.exe`, `.dll`, `.sys`, `.msi`, `.vsix` | Windows PE metadata (ProductName, FileDescription, ProductVersion) via `pefile` and VS Code VSIX manifests (DisplayName). |
+| **Audio & Media** | `.wav`, `.mp3`, `.flac`, `.ogg`, `.m4a`, `.mp4`, `.mkv`, `.mov` | WAV RIFF INFO chunks (`INAM`, `IART`), ID3 audio tags (artist, title), and duration calculation. |
+| **Fonts** | `.ttf`, `.otf`, `.woff`, `.woff2` | Pure-Python OpenType/TrueType `name` table parsing extracting Font Family and Full Font Name (e.g., `HoneyBear Italic`). |
+| **Images** | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.tiff` | EXIF metadata (camera, description, date) or **Google Gemini Vision AI** (scenes, screenshots, charts, objects), plus resolution structuring. |
+| **Archives** | `.zip`, `.tar`, `.tar.gz`, `.tar.bz2`, `.7z`, `.rar`, `.iso`, `.whl` | Internal package/directory root names without extracting files to disk. |
+| **Universal Fallback** | All other formats (`.bin`, `.dat`, `.db`, `.tmp`, `.pak`, etc.) | **100% Supported**: Safe categorization, naming convention cleaning, and data integrity preservation. |
 
 ---
 
