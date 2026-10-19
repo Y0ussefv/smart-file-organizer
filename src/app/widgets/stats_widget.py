@@ -32,7 +32,7 @@ class StatCard(QFrame):
         layout.addWidget(self.title_label)
         layout.addWidget(self.number_label)
 
-    def set_value(self, val: Union[int, str]):
+    def set_value(self, val):
         self.number_label.setText(str(val))
 
 
