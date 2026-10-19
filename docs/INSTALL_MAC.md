@@ -1,6 +1,28 @@
 # macOS Installation & Setup Guide — Smart File Organizer
 
-This guide explains how to install, run, and package **Smart File Organizer & Intelligent File Renamer** on **macOS** (both Apple Silicon M1/M2/M3/M4 and Intel Macs).
+This guide explains how to install and run **Smart File Organizer & Intelligent File Renamer** on **macOS** (Apple Silicon M1/M2/M3/M4 & Intel).
+
+---
+
+## ⚡ Fast Mini Install (Step-by-Step)
+
+Open your Mac **Terminal** and run:
+
+```bash
+# Step 1: Go to project folder
+cd /path/to/smart-file-organizer
+
+# Step 2: Create & activate virtual environment
+python3 -m venv venv && source venv/bin/activate
+
+# Step 3: Install dependencies
+pip install -r requirements.txt
+
+# Step 4: Run the app!
+python3 main.py
+```
+
+*(If you don't have Python 3 yet: run `brew install python`)*
 
 ---
 
