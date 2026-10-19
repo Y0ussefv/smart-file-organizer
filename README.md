@@ -3,7 +3,7 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
 [![GUI](https://img.shields.io/badge/GUI-PySide6%20(Qt6)-green.svg)](https://wiki.qt.io/Qt_for_Python)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Tests](https://img.shields.io/badge/Tests-55%20Passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-58%20Passed-brightgreen.svg)]()
 
 **Smart File Organizer** is a desktop application that scans directories, reads document contents and metadata, generates concise descriptive filenames, renames files safely, and produces detailed audit reports (CSV, TXT, JSON).
 
@@ -59,7 +59,7 @@ It runs on **Windows, macOS, and Linux** with a graphical interface requiring ze
 | **Executables & Installers** | `.exe`, `.dll`, `.sys`, `.msi`, `.vsix` | Windows PE metadata (ProductName, FileDescription, ProductVersion) via `pefile` and VS Code VSIX manifests (DisplayName). |
 | **Audio & Media** | `.wav`, `.mp3`, `.flac`, `.ogg`, `.m4a`, `.mp4`, `.mkv`, `.mov` | WAV RIFF INFO chunks (`INAM`, `IART`), ID3 audio tags (artist, title), and duration calculation. |
 | **Fonts** | `.ttf`, `.otf`, `.woff`, `.woff2` | Pure-Python OpenType/TrueType `name` table parsing extracting Font Family and Full Font Name (e.g., `HoneyBear Italic`). |
-| **Images** | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.tiff` | EXIF metadata (camera, description, date) or **Google Gemini Vision AI** (scenes, screenshots, charts, objects), plus resolution structuring. |
+| **Images** | `.jpg`, `.jpeg`, `.png`, `.webp`, `.gif`, `.tiff` | EXIF metadata (camera, description, date) or **AI Vision (Groq Cloud Qwen 3.8 27B / Google Gemini)** (scenes, logos, documents, screenshots, objects), plus resolution structuring. |
 | **Archives** | `.zip`, `.tar`, `.tar.gz`, `.tar.bz2`, `.7z`, `.rar`, `.iso`, `.whl` | Internal package/directory root names without extracting files to disk. |
 | **Universal Fallback** | All other formats (`.bin`, `.dat`, `.db`, `.tmp`, `.pak`, etc.) | **100% Supported**: Safe categorization, naming convention cleaning, and data integrity preservation. |
 
