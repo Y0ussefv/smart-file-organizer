@@ -1,0 +1,47 @@
+======================================================================
+  SMART FILE ORGANIZER - FAST MACOS INSTALLATION (STEP BY STEP)
+======================================================================
+
+Prerequisites:
+  - macOS 11 or higher (Intel or Apple Silicon M1/M2/M3/M4)
+  - Python 3.10+ (If you don't have it, run: brew install python)
+
+----------------------------------------------------------------------
+FAST INSTALL (4 SIMPLE STEPS)
+----------------------------------------------------------------------
+
+1. Open Terminal (Press Cmd + Space, type "Terminal", hit Enter)
+
+2. Go to the project folder:
+   cd /path/to/smart-file-organizer
+
+3. Create & activate a virtual environment:
+   python3 -m venv venv
+   source venv/bin/activate
+
+4. Install dependencies:
+   pip install -r requirements.txt
+
+5. Run the app:
+   python3 main.py
+
+
+----------------------------------------------------------------------
+USEFUL COMMANDS
+----------------------------------------------------------------------
+
+* Run all tests:
+  python3 -m pytest tests/
+
+* Build standalone Mac app (.app):
+  chmod +x build_scripts/build_macos.sh
+  ./build_scripts/build_macos.sh
+
+* If macOS Gatekeeper says "cannot be opened because developer cannot be verified":
+  xattr -cr dist/SmartFileOrganizer.app
+
+* Folder Permissions:
+  When the app asks for access to Documents/Downloads/Desktop,
+  click "OK / Allow".
+
+======================================================================
