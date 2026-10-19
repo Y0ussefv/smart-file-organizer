@@ -192,8 +192,10 @@ class SettingsDialog(QDialog):
         model_row = QHBoxLayout()
         model_row.addWidget(QLabel("Vision Model:"))
         self.cb_ai_model = QComboBox()
-        self.cb_ai_model.addItems(["gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro"])
-        cur_model = self.settings.get("google_ai_model", "gemini-1.5-flash")
+        self.cb_ai_model.addItems(["gemini-3.8-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-3.5-flash-lite"])
+        cur_model = self.settings.get("google_ai_model", "gemini-3.8-flash")
+        if cur_model not in ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-3.5-flash-lite"]:
+            cur_model = "gemini-3.8-flash"
         self.cb_ai_model.setCurrentText(cur_model)
         model_row.addWidget(self.cb_ai_model)
         model_row.addStretch()

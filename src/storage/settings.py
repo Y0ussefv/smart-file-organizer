@@ -38,7 +38,7 @@ class SettingsManager:
             "enable_ocr": False,
             "enable_google_ai": False,
             "google_api_key": os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", ""),
-            "google_ai_model": "gemini-1.5-flash",
+            "google_ai_model": "gemini-3.8-flash",
             "rename_unlabelled_images": True,
             "max_file_size_mb": 100,
             "last_folder": "",

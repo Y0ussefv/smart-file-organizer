@@ -15,7 +15,8 @@ import requests
 from PIL import Image
 
 # Supported Gemini models with vision capabilities
-DEFAULT_GEMINI_MODEL = "gemini-1.5-flash"
+DEFAULT_GEMINI_MODEL = "gemini-3.8-flash"
+SUPPORTED_GEMINI_MODELS = ["gemini-3.8-flash", "gemini-3.5-flash", "gemini-flash-latest", "gemini-3.5-flash-lite"]
 
 
 def prepare_image_for_ai(image_path: Path, max_dimension: int = 1024) -> Tuple[bytes, str]:
@@ -71,6 +72,10 @@ def analyze_image_with_google_ai(
             "Return ONLY the plain title text with no punctuation, no markdown, and no extra explanation."
         )
 
+        # Auto-promote retired model names to modern active models
+        if model in ("gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.5-flash"):
+            model = "gemini-3.8-flash"
+
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
         payload = {
@@ -94,6 +99,16 @@ def analyze_image_with_google_ai(
         }
 
         response = requests.post(url, json=payload, timeout=timeout_seconds)
+
+        # Automatic fallback if configured model was deprecated
+        if response.status_code == 404:
+            for fallback_model in ("gemini-3.8-flash", "gemini-flash-latest", "gemini-3.5-flash"):
+                if fallback_model != model:
+                    fb_url = f"https://generativelanguage.googleapis.com/v1beta/models/{fallback_model}:generateContent?key={api_key}"
+                    fb_resp = requests.post(fb_url, json=payload, timeout=timeout_seconds)
+                    if fb_resp.status_code == 200:
+                        response = fb_resp
+                        break
 
         if response.status_code != 200:
             try:
@@ -133,10 +148,15 @@ def analyze_image_with_google_ai(
 
 def verify_google_api_key(api_key: str, model: str = DEFAULT_GEMINI_MODEL) -> Tuple[bool, str]:
     """Tests if a Google Gemini API key is valid by sending a tiny lightweight prompt."""
-    if not api_key:
+    clean_key = api_key.strip()
+    if not clean_key:
         return False, "API key cannot be empty."
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    # Auto-promote retired model names
+    if model in ("gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.5-flash"):
+        model = "gemini-3.8-flash"
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={clean_key}"
     payload = {
         "contents": [{"parts": [{"text": "Hello"}]}],
         "generationConfig": {"maxOutputTokens": 5}
@@ -145,12 +165,34 @@ def verify_google_api_key(api_key: str, model: str = DEFAULT_GEMINI_MODEL) -> Tu
     try:
         resp = requests.post(url, json=payload, timeout=10)
         if resp.status_code == 200:
-            return True, "API Key is valid and successfully connected to Google Gemini!"
+            return True, f"API Key is valid and successfully connected to Google Gemini ({model})!"
         else:
             try:
                 err = resp.json().get("error", {}).get("message", resp.text)
             except Exception:
                 err = resp.text
+
+            # If 404 model not found, try available fallbacks
+            if resp.status_code == 404 or "is no longer available" in err or "not found" in err:
+                for fb in ("gemini-3.8-flash", "gemini-flash-latest", "gemini-3.5-flash"):
+                    if fb != model:
+                        fb_url = f"https://generativelanguage.googleapis.com/v1beta/models/{fb}:generateContent?key={clean_key}"
+                        fb_resp = requests.post(fb_url, json=payload, timeout=10)
+                        if fb_resp.status_code == 200:
+                            return True, f"API Key is valid and successfully connected to Google Gemini ({fb})!"
+
+            # If project denied access (403), provide actionable fix
+            if "denied access" in err.lower() or "permission_denied" in err.lower() or resp.status_code == 403:
+                return False, (
+                    "Google Project Access Denied (403): Google verified your API key, but the Google Cloud / AI Studio "
+                    "project where this key was generated has restricted access.\n\n"
+                    "How to fix in 30 seconds:\n"
+                    "1. Open https://aistudio.google.com/app/apikey in your browser.\n"
+                    "2. Click '+ Create API key'.\n"
+                    "3. Select 'Create API key in new project' (this creates a fresh, unrestricted project).\n"
+                    "4. Copy the newly generated key and paste it here."
+                )
+
             return False, f"API Key verification failed ({resp.status_code}): {err}"
     except Exception as e:
         return False, f"Connection failed: {str(e)}"
