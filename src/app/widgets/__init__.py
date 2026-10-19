@@ -1,0 +1,1 @@
+"""App widgets package."""
