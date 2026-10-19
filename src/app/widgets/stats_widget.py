@@ -3,6 +3,7 @@ KPI Stats Cards Widget for Smart File Organizer Dashboard.
 Displays live counts for total files, supported/unsupported, ready to rename, and errors.
 """
 
+from typing import Union
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame
 from PySide6.QtCore import Qt
 
@@ -31,7 +32,7 @@ class StatCard(QFrame):
         layout.addWidget(self.title_label)
         layout.addWidget(self.number_label)
 
-    def set_value(self, val: int | str):
+    def set_value(self, val: Union[int, str]):
         self.number_label.setText(str(val))
 
 
