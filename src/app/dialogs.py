@@ -53,7 +53,8 @@ class RenameConfirmationDialog(QDialog):
 
         list_widget = QListWidget()
         for item in items_to_rename[:100]:
-            list_widget.addItem(f"{item.original_name}  ➔  {item.new_name}")
+            dest_display = f"📁 {item.target_subfolder}/{item.new_name}" if item.target_subfolder else item.new_name
+            list_widget.addItem(f"{item.original_name}  ➔  {dest_display}")
 
         if len(items_to_rename) > 100:
             list_widget.addItem(f"... and {len(items_to_rename) - 100} more files.")
@@ -132,9 +133,14 @@ class SettingsDialog(QDialog):
         self.check_recursive.setChecked(self.settings.get("recursive", True))
         layout.addWidget(self.check_recursive)
 
-        # Structured format for unlabelled/hash image names
-        self.check_unlabelled_images = QCheckBox("Auto-format cryptic unlabelled images (e.g. 4a73b82d.png ➔ PNG_1330x1183.png)")
-        self.check_unlabelled_images.setChecked(self.settings.get("rename_unlabelled_images", True))
+        # Domain grouping into folders
+        self.check_group_domain = QCheckBox("📁 Group matching domain files into folders (e.g. logo delfa + pdf delfa ➔ delfa/)")
+        self.check_group_domain.setChecked(self.settings.get("group_by_domain", True))
+        layout.addWidget(self.check_group_domain)
+
+        # Title vs size option
+        self.check_unlabelled_images = QCheckBox("Derive titles from cleaned image names (never use resolution size)")
+        self.check_unlabelled_images.setChecked(self.settings.get("rename_unlabelled_images", False))
         layout.addWidget(self.check_unlabelled_images)
 
         # Safe file size limit
@@ -145,21 +151,21 @@ class SettingsDialog(QDialog):
         layout.addWidget(self.spin_max_size)
 
         # -------------------------------------------------------------
-        # Google AI Vision for Image Recognition (Opt-in)
+        # AI Vision and Document Recognition (Groq Cloud / Google Gemini)
         # -------------------------------------------------------------
         ai_box = QFrame()
         ai_box.setStyleSheet("background-color: #24273a; border-radius: 8px; border: 1px solid #363a4f; padding: 10px;")
         ai_layout = QVBoxLayout(ai_box)
         ai_layout.setSpacing(8)
 
-        self.check_google_ai = QCheckBox("Enable Google AI Image Recognition (Gemini Vision)")
+        self.check_google_ai = QCheckBox("Enable AI Vision & Document Analysis (Groq Cloud / Google Gemini)")
         self.check_google_ai.setStyleSheet("font-weight: 700; color: #8aadf4;")
         self.check_google_ai.setChecked(self.settings.get("enable_google_ai", False))
         ai_layout.addWidget(self.check_google_ai)
 
         ai_notice = QLabel(
-            "Privacy Notice: Visual content from images is sent securely to your selected AI provider "
-            "(Groq Cloud or Google Gemini) to generate descriptive filenames. All documents remain 100% local."
+            "Privacy Notice: Visual content from photos and PDF document text are analyzed with your selected AI "
+            "provider (Groq Cloud or Google Gemini) to generate descriptive filenames. All other files remain 100% local."
         )
         ai_notice.setWordWrap(True)
         ai_notice.setStyleSheet("color: #a5adcb; font-size: 11px;")
@@ -315,7 +321,9 @@ class SettingsDialog(QDialog):
         self.settings.set("google_api_key", key_val)
         if key_val.startswith("gsk_") or prov == "groq":
             self.settings.set("groq_api_key", key_val)
+            self.settings.set("groq_model", model_val or "qwen/qwen3.8-27b")
         self.settings.set("google_ai_model", model_val)
+        self.settings.set("group_by_domain", self.check_group_domain.isChecked())
         self.settings.set("rename_unlabelled_images", self.check_unlabelled_images.isChecked())
         self.settings.set("export_dir", self.edit_export_dir.text().strip())
         self.accept()

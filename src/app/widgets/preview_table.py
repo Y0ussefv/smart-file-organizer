@@ -4,6 +4,7 @@ Supports in-place manual editing of proposed filenames, real-time filtering,
 search, multi-column sorting, selection checkboxes, and custom status badge rendering.
 """
 
+import re
 from pathlib import Path
 from typing import List, Optional, Callable
 
@@ -178,13 +179,14 @@ class PreviewTableWidget(QWidget):
             self.table.setItem(row, self.COL_ORIGINAL, orig_item)
 
             # Proposed New Filename (Editable)
-            prop_item = QTableWidgetItem(item.new_name)
+            display_name = f"📁 {item.target_subfolder}/{item.new_name}" if item.target_subfolder else item.new_name
+            prop_item = QTableWidgetItem(display_name)
             # Editable only if item is not an error
             if item.status != FileStatus.ERROR:
                 prop_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEditable)
             else:
                 prop_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable)
-            if item.manual_override:
+            if item.manual_override or item.target_subfolder:
                 prop_item.setFont(QFont("", -1, QFont.Weight.Bold))
             self.table.setItem(row, self.COL_PROPOSED, prop_item)
 
@@ -288,19 +290,27 @@ class PreviewTableWidget(QWidget):
 
         # Proposed Name manually edited
         elif table_item.column() == self.COL_PROPOSED:
-            edited_text = table_item.text().strip()
-            if edited_text and edited_text != file_item.new_name:
-                file_item.new_name = edited_text
+            raw_text = table_item.text().strip()
+            clean_text = raw_text.lstrip("📁 ").strip()
+            if "/" in clean_text or "\\" in clean_text:
+                parts = re.split(r'[/\\]', clean_text, maxsplit=1)
+                file_item.target_subfolder = parts[0].strip() or None
+                edited_name = parts[1].strip()
+            else:
+                edited_name = clean_text
+
+            if edited_name and (edited_name != file_item.new_name or file_item.target_subfolder):
+                file_item.new_name = edited_name
                 file_item.manual_override = True
 
-                # If matches original name, set unchanged; otherwise ready
-                if edited_text == file_item.original_name:
+                # If matches original name and no target subfolder, set unchanged; otherwise ready
+                if edited_name == file_item.original_name and not file_item.target_subfolder:
                     file_item.status = FileStatus.UNCHANGED
                     file_item.explanation = "Restored to original name manually."
                     file_item.is_selected = False
                 else:
                     file_item.status = FileStatus.READY_TO_RENAME
-                    file_item.explanation = f"Manually edited by user: '{edited_text}'"
+                    file_item.explanation = f"Manually edited by user: '{file_item.proposed_display_path}'"
                     file_item.is_selected = True
 
                 self.item_edited.emit(file_item)

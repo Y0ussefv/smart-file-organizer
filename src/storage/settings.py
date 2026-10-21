@@ -42,7 +42,9 @@ class SettingsManager:
             "google_ai_model": "gemini-3.8-flash",
             "groq_api_key": os.getenv("GROQ_API_KEY", ""),
             "groq_model": "qwen/qwen3.8-27b",
-            "rename_unlabelled_images": True,
+            "group_by_domain": True,
+            "min_domain_files": 2,
+            "rename_unlabelled_images": False,
             "max_file_size_mb": 100,
             "last_folder": "",
             "export_dir": "",
@@ -77,6 +79,10 @@ class SettingsManager:
 
     def get_scan_config(self, root_path: Path) -> ScanConfig:
         """Constructs a ScanConfig object based on current settings."""
+        groq_key = (self.get("groq_api_key", "") or os.getenv("GROQ_API_KEY", "")).strip()
+        google_key = (self.get("google_api_key", "") or os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")).strip()
+        ai_enabled = self.get("enable_google_ai", False) or bool(groq_key) or bool(google_key)
+
         return ScanConfig(
             root_path=root_path,
             recursive=self.get("recursive", True),
@@ -88,10 +94,15 @@ class SettingsManager:
             preserve_extension=self.get("preserve_extension", True),
             include_hidden=self.get("include_hidden", False),
             enable_ocr=self.get("enable_ocr", False),
-            enable_google_ai=self.get("enable_google_ai", False),
-            google_api_key=self.get("google_api_key", ""),
-            google_ai_model=self.get("google_ai_model", "gemini-1.5-flash"),
-            rename_unlabelled_images=self.get("rename_unlabelled_images", True),
+            enable_google_ai=ai_enabled,
+            ai_provider=self.get("ai_provider", "auto"),
+            google_api_key=google_key,
+            google_ai_model=self.get("google_ai_model", "gemini-3.8-flash"),
+            groq_api_key=groq_key,
+            groq_model=self.get("groq_model", "qwen/qwen3.8-27b"),
+            group_by_domain=self.get("group_by_domain", True),
+            min_domain_files=self.get("min_domain_files", 2),
+            rename_unlabelled_images=self.get("rename_unlabelled_images", False),
             max_file_size_mb=self.get("max_file_size_mb", 100),
             export_dir=Path(self.get("export_dir")) if self.get("export_dir") else None,
         )

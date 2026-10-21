@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, List, Dict, Any
+import os
 import json
 import re
 import csv
@@ -98,7 +99,36 @@ class PDFExtractor(BaseExtractor):
 
             lines = [line.strip() for line in extracted_text.splitlines() if line.strip()]
 
-            # Determine best candidate title
+            # 3. AI Document Analysis (Groq Cloud or Google Gemini)
+            if config:
+                api_key = (
+                    getattr(config, "groq_api_key", "").strip()
+                    or getattr(config, "google_api_key", "").strip()
+                    or os.getenv("GROQ_API_KEY", "").strip()
+                    or os.getenv("GEMINI_API_KEY", "").strip()
+                )
+                ai_enabled = getattr(config, "enable_google_ai", False) or getattr(config, "enable_ai_vision", False) or bool(api_key)
+                if ai_enabled and api_key:
+                    from src.core.ai_vision import analyze_pdf_with_ai
+                    provider = getattr(config, "ai_provider", "auto")
+                    ai_model = getattr(config, "groq_model" if api_key.startswith("gsk_") else "google_ai_model", None)
+                    ai_title, ai_err, prov_name = analyze_pdf_with_ai(
+                        file_path=file_path,
+                        api_key=api_key,
+                        provider=provider,
+                        model=ai_model,
+                        extracted_text=extracted_text
+                    )
+                    if ai_title:
+                        return ExtractionResult(
+                            title=ai_title,
+                            summary=f"{prov_name}: {ai_title}",
+                            explanation=f"PDF document analyzed and recognized by {prov_name}: '{ai_title}'",
+                            file_type="PDF Document",
+                            is_supported=True
+                        )
+
+            # Determine best candidate title from metadata or headings
             candidate_title = meta_title
             explanation = ""
 
@@ -115,9 +145,16 @@ class PDFExtractor(BaseExtractor):
                 candidate_title = lines[0][:60]
                 explanation = "Used first line of PDF content as document title."
 
-            summary = (" ".join(lines[:5]))[:200] if lines else "No text extracted (scanned or image-only PDF)"
+            # Ensure every PDF is ready with a title if possible
+            if not candidate_title:
+                clean_stem = re.sub(r'[\-_.]+', ' ', file_path.stem).strip()
+                if len(clean_stem) >= 3 and not clean_stem.isdigit():
+                    candidate_title = clean_stem
+                    explanation = f"Derived title from cleaned document name: '{candidate_title}'"
+
+            summary = (" ".join(lines[:5]))[:200] if lines else "PDF Document"
             if not explanation:
-                explanation = "Scanned PDF or document with no detectable text; retained original name."
+                explanation = "PDF document processed."
 
             return ExtractionResult(
                 title=candidate_title,
@@ -667,12 +704,18 @@ class ImageExtractor(BaseExtractor):
             from PIL import Image, ExifTags
 
             # 1. AI Vision (Groq Cloud or Google Gemini)
-            if config and (getattr(config, "enable_google_ai", False) or getattr(config, "enable_ai_vision", False)):
-                api_key = getattr(config, "google_api_key", "").strip() or getattr(config, "groq_api_key", "").strip()
-                if api_key:
+            if config:
+                api_key = (
+                    getattr(config, "groq_api_key", "").strip()
+                    or getattr(config, "google_api_key", "").strip()
+                    or os.getenv("GROQ_API_KEY", "").strip()
+                    or os.getenv("GEMINI_API_KEY", "").strip()
+                )
+                ai_enabled = getattr(config, "enable_google_ai", False) or getattr(config, "enable_ai_vision", False) or bool(api_key)
+                if ai_enabled and api_key:
                     from src.core.ai_vision import analyze_image_with_ai
                     provider = getattr(config, "ai_provider", "auto")
-                    model = getattr(config, "google_ai_model", None)
+                    model = getattr(config, "groq_model" if api_key.startswith("gsk_") else "google_ai_model", None)
                     ai_title, ai_error, provider_used = analyze_image_with_ai(file_path, api_key=api_key, provider=provider, model=model)
                     if ai_title:
                         return ExtractionResult(
@@ -719,19 +762,15 @@ class ImageExtractor(BaseExtractor):
                     candidate_title = " ".join(parts)
                     explanation = f"Derived title from image camera/timestamp metadata: '{candidate_title}'"
 
-                if not candidate_title and config and getattr(config, "rename_unlabelled_images", False):
-                    stem = file_path.stem
-                    is_cryptic = (
-                        (len(stem) >= 16 and any(c in stem for c in "-_0123456789abcdefABCDEF"))
-                        or stem.isdigit()
-                        or stem.lower().startswith(("screenshot", "capture", "img_", "image", "photo", "unnamed"))
-                    )
-                    if is_cryptic:
-                        candidate_title = f"{img_format} {width}x{height}"
-                        explanation = f"Generated structured name from image format and resolution ({width}x{height})."
+                # If no EXIF title, derive title from cleaned stem (never use resolution size!)
+                if not candidate_title:
+                    clean_stem = re.sub(r'[\-_.]+', ' ', file_path.stem).strip()
+                    if len(clean_stem) >= 3 and not clean_stem.isdigit() and not clean_stem.lower().startswith(("img_", "dsc_")):
+                        candidate_title = clean_stem
+                        explanation = f"Derived title from cleaned image filename: '{candidate_title}'"
 
                 if not candidate_title:
-                    explanation = f"Image metadata inspected ({width}x{height} {img_format}); no descriptive EXIF title found."
+                    explanation = f"Image metadata inspected; kept descriptive original name."
 
                 summary = f"{img_format} {width}x{height} pixels. " + (f"Camera: {camera_model}. " if camera_model else "") + (f"Date: {date_taken}" if date_taken else "")
 

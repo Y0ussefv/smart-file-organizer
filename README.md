@@ -21,6 +21,13 @@ It runs on **Windows, macOS, and Linux** with a graphical interface requiring ze
     - `source123.py` ➔ `API_Authentication_Module.py`
     - `budget_raw.xlsx` ➔ `Q3_Financial_Summary.xlsx`
     - `slides_draft.pptx` ➔ `Product_Launch_Roadmap.pptx`
+- **Intelligent Domain & Project Folder Organization**:
+  - Automatically detects shared domains, project names, or brand entities across different file formats.
+  - Groups matching files into dedicated subfolders (e.g., `logo delfa.png` + `pdf delfa.pdf` ➔ `delfa/Logo_Delfa.png` + `delfa/Pdf_Delfa.pdf`).
+  - Full undo capability: cleanly moves files back and removes the empty domain folder.
+- **AI-Powered Photo & Document Scanning (Groq Cloud Qwen 3.8 27B / Google Gemini)**:
+  - Scans image photos, logos, scenes, and diagrams using Groq Cloud vision and assigns descriptive titles without size/dimension tags (never `1920x1080`).
+  - Scans PDF documents and scanned/image PDFs to ensure every file is ready with an accurate title.
 - **Modern PySide6 GUI**:
   - Native folder picker with subfolder recursion toggle.
   - KPI summary metric cards (Total Scanned, Supported, Ready to Rename, Unchanged, Errors).

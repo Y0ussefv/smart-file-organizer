@@ -167,3 +167,86 @@ class TestAIVision:
         mock_resp.json.return_value = {"error": {"message": "Invalid API Key"}}
         valid2, msg2 = verify_groq_api_key("gsk_invalid_key")
         assert valid2 is False
+
+    @patch("requests.post")
+    def test_image_extractor_with_groq_has_title_not_size(self, mock_post, tmp_path):
+        """Verify image gets a descriptive title from Groq without dimensions/size."""
+        from src.core.content_extractors import ImageExtractor
+
+        img_path = tmp_path / "photo_sample.png"
+        img = Image.new("RGB", (1920, 1080), color="blue")
+        img.save(str(img_path))
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "choices": [{"message": {"content": "Company Headquarters Building"}}]
+        }
+        mock_post.return_value = mock_resp
+
+        config = ScanConfig(
+            root_path=tmp_path,
+            groq_api_key="gsk_valid_key",
+            enable_google_ai=True
+        )
+
+        extractor = ImageExtractor()
+        res = extractor.extract(img_path, config=config)
+
+        assert res.title == "Company Headquarters Building"
+        assert "1920x1080" not in (res.title or "")
+        assert "Groq Cloud" in res.explanation
+
+    def test_image_fallback_never_uses_resolution_size(self, tmp_path):
+        """Ensure unlabelled images are never named with resolution size (e.g. 1920x1080)."""
+        from src.core.content_extractors import ImageExtractor
+
+        img_path = tmp_path / "logo_delfa.png"
+        img = Image.new("RGB", (1330, 1183), color="red")
+        img.save(str(img_path))
+
+        config = ScanConfig(root_path=tmp_path)
+        extractor = ImageExtractor()
+        res = extractor.extract(img_path, config=config)
+
+        # Should derive title from clean stem and NEVER contain '1330x1183'
+        assert "1330x1183" not in (res.title or "")
+        assert res.title == "logo delfa" or "delfa" in (res.title or "").lower()
+
+    @patch("requests.post")
+    def test_pdf_extractor_invokes_groq_for_text(self, mock_post, tmp_path):
+        """Verify PDF text is analyzed by Groq to derive document title."""
+        from src.core.content_extractors import PDFExtractor
+
+        pdf_path = tmp_path / "report_2026.pdf"
+        # Create minimal PDF
+        pdf_path.write_bytes(b"%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Count 0>>endobj\nxref\n0 3\n0000000000 65535 f\n0000000009 00000 n\n0000000052 00000 n\ntrailer<</Size 3/Root 1 0 R>>\nstartxref\n102\n%%EOF\n")
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "choices": [{"message": {"content": "Delfa Partnership Agreement"}}]
+        }
+        mock_post.return_value = mock_resp
+
+        config = ScanConfig(
+            root_path=tmp_path,
+            groq_api_key="gsk_test_key",
+            enable_google_ai=True
+        )
+
+        with patch("pypdf.PdfReader") as mock_reader_cls:
+            mock_reader = MagicMock()
+            mock_page = MagicMock()
+            mock_page.extract_text.return_value = "This agreement is entered into by Delfa Corporation and its partners."
+            mock_reader.pages = [mock_page]
+            mock_reader.is_encrypted = False
+            mock_reader.metadata = None
+            mock_reader_cls.return_value = mock_reader
+
+            extractor = PDFExtractor()
+            res = extractor.extract(pdf_path, config=config)
+
+            assert res.title == "Delfa Partnership Agreement"
+            assert "Groq Cloud" in res.explanation
+

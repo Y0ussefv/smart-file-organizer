@@ -55,15 +55,14 @@ class CollisionHandler:
           appends _2, _3, etc.
         - If claim is True, claims the resulting name in memory to prevent future collisions in this batch.
         """
-        parent = item.original_path.parent
-        self.register_existing_disk_files(parent)
+        dest_parent = (item.original_path.parent / item.target_subfolder) if item.target_subfolder else item.original_path.parent
+        self.register_existing_disk_files(dest_parent)
 
         stem, ext = split_filename_and_ext(candidate_name)
-        claimed = self._claimed_names[parent]
-        batch_orig = self._batch_originals.get(parent, set())
+        claimed = self._claimed_names[dest_parent]
 
-        # If candidate name matches the file's own original name, it's not a collision
-        if candidate_name.lower() == item.original_name.lower():
+        # If candidate name matches the file's own original name and staying in same directory, it's not a collision
+        if candidate_name.lower() == item.original_name.lower() and not item.target_subfolder:
             if claim:
                 claimed.add(candidate_name.lower())
             return candidate_name
@@ -72,16 +71,14 @@ class CollisionHandler:
         counter = 2
 
         # Check collision:
-        # A collision occurs if proposed.lower() is already claimed,
-        # OR if it exists on disk and is NOT an item in our current batch that is being renamed away
         while True:
             lower_prop = proposed.lower()
 
-            # Is it claimed by another item in this batch?
+            # Is it claimed by another item in this batch for this destination?
             is_claimed_in_batch = lower_prop in claimed
 
             # Does it exist on disk as a file that is NOT this item itself?
-            disk_path = parent / proposed
+            disk_path = dest_parent / proposed
             exists_on_disk = disk_path.exists()
             is_same_file = (disk_path.resolve() == item.original_path.resolve()) if exists_on_disk and item.original_path.exists() else False
 
@@ -115,10 +112,14 @@ class CollisionHandler:
 
             resolved = self.resolve_proposed_name(item, item.new_name, claim=True)
             item.new_name = resolved
-            item.new_path = item.original_path.parent / resolved
+            dest_dir = (item.original_path.parent / item.target_subfolder) if item.target_subfolder else item.original_path.parent
+            item.new_path = dest_dir / resolved
 
-            # Update status if unchanged
-            if item.new_name == item.original_name:
+            # If moving to target_subfolder, it is ready to rename/move!
+            if item.target_subfolder:
+                item.status = FileStatus.READY_TO_RENAME
+                item.is_selected = True
+            elif item.new_name == item.original_name:
                 if item.status in (FileStatus.READY_TO_RENAME, FileStatus.FOUND, FileStatus.ANALYZING):
                     item.status = FileStatus.UNCHANGED
                     if not item.explanation:

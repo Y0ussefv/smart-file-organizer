@@ -88,8 +88,15 @@ class UndoManager:
 
             # Perform safe revert
             try:
-                cur_path.rename(orig_path)
+                import shutil
+                shutil.move(str(cur_path), str(orig_path))
                 reverted_count += 1
+                # Clean up empty subfolder if it was created for domain grouping
+                if cur_path.parent != orig_path.parent and cur_path.parent.exists():
+                    try:
+                        cur_path.parent.rmdir()
+                    except OSError:
+                        pass
                 results.append(UndoResultItem(
                     original_path=orig_path,
                     renamed_path=cur_path,

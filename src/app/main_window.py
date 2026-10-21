@@ -162,9 +162,15 @@ class MainWindow(QMainWindow):
         self.check_recursive.setChecked(self.settings_manager.get("recursive", True))
         self.check_recursive.stateChanged.connect(lambda: self.settings_manager.set("recursive", self.check_recursive.isChecked()))
 
+        self.check_domain_group = QCheckBox("Group Domain Folders")
+        self.check_domain_group.setToolTip("Creates dedicated subfolders for matching domains/projects (e.g., logo delfa + pdf delfa ➔ delfa/)")
+        self.check_domain_group.setChecked(self.settings_manager.get("group_by_domain", True))
+        self.check_domain_group.stateChanged.connect(lambda: self.settings_manager.set("group_by_domain", self.check_domain_group.isChecked()))
+
         folder_row.addWidget(self.btn_select_folder)
         folder_row.addWidget(self.folder_input, 1)
         folder_row.addWidget(self.check_recursive)
+        folder_row.addWidget(self.check_domain_group)
         dash_layout.addLayout(folder_row)
 
         # Action Buttons Row
@@ -314,6 +320,7 @@ class MainWindow(QMainWindow):
 
         config = self.settings_manager.get_scan_config(folder_path)
         config.recursive = self.check_recursive.isChecked()
+        config.group_by_domain = self.check_domain_group.isChecked()
 
         self.active_thread = QThread()
         self.active_worker = ScanWorker(config)

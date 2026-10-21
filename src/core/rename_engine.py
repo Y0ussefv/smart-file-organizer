@@ -42,10 +42,12 @@ class RenameEngine:
         sess_id = session_id or str(uuid.uuid4())
         records: List[RenameHistoryRecord] = []
 
-        # Filter items that are actually eligible to be renamed
+        # Filter items that are actually eligible to be renamed or organized
         eligible_items = [
             item for item in items
-            if item.is_selected and item.status == FileStatus.READY_TO_RENAME and item.new_name and item.new_name != item.original_name
+            if item.is_selected and item.status == FileStatus.READY_TO_RENAME and (
+                (item.new_name and item.new_name != item.original_name) or bool(item.target_subfolder)
+            )
         ]
 
         total_eligible = len(eligible_items)
@@ -54,8 +56,9 @@ class RenameEngine:
             if self._is_cancelled:
                 break
 
+            target_label = f"{item.target_subfolder}/{item.new_name}" if item.target_subfolder else item.new_name
             if progress_callback:
-                progress_callback(idx, total_eligible, f"Renaming {item.original_name} -> {item.new_name}")
+                progress_callback(idx, total_eligible, f"Renaming {item.original_name} -> {target_label}")
 
             record = self._rename_single_file(item, sess_id)
             records.append(record)
@@ -78,9 +81,19 @@ class RenameEngine:
 
     def _rename_single_file(self, item: FileItem, session_id: str) -> RenameHistoryRecord:
         """Safely renames a single file with rigorous pre- and post-checks."""
+        import shutil
         now_iso = datetime.now().isoformat()
         orig_path = item.original_path
-        target_path = item.original_path.parent / item.new_name
+
+        # Determine target directory and path
+        if item.target_subfolder:
+            dest_dir = orig_path.parent / item.target_subfolder
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            target_path = dest_dir / item.new_name
+        else:
+            target_path = item.original_path.parent / item.new_name
+
+        display_new_name = f"{item.target_subfolder}/{item.new_name}" if item.target_subfolder else item.new_name
 
         record = RenameHistoryRecord(
             session_id=session_id,
@@ -88,7 +101,7 @@ class RenameEngine:
             original_path=str(orig_path),
             new_path=str(target_path),
             original_name=item.original_name,
-            new_name=item.new_name,
+            new_name=display_new_name,
             file_size=item.file_size,
             status="RENAMED",
         )
@@ -117,7 +130,7 @@ class RenameEngine:
             if target_path.resolve() != orig_path.resolve():
                 item.status = FileStatus.ERROR
                 item.error_message = "Destination already exists"
-                item.explanation = f"Destination '{item.new_name}' already exists. Overwrite strictly prevented."
+                item.explanation = f"Destination '{display_new_name}' already exists. Overwrite strictly prevented."
                 record.status = "ERROR"
                 record.error = item.error_message
                 return record
@@ -127,10 +140,9 @@ class RenameEngine:
         item.sha256 = file_hash
         record.sha256 = file_hash
 
-        # Perform atomic rename
+        # Perform atomic move / rename
         try:
-            # os.replace or rename
-            orig_path.rename(target_path)
+            shutil.move(str(orig_path), str(target_path))
         except (PermissionError, OSError) as e:
             item.status = FileStatus.ERROR
             item.error_message = str(e)
@@ -164,7 +176,7 @@ class RenameEngine:
         # Success!
         item.status = FileStatus.RENAMED
         item.new_path = target_path
-        item.explanation = f"Successfully renamed from '{item.original_name}' to '{item.new_name}'."
+        item.explanation = f"Successfully organized & renamed from '{item.original_name}' to '{display_new_name}'."
         record.status = "RENAMED"
 
         return record

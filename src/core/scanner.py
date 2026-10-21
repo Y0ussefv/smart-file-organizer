@@ -139,10 +139,15 @@ class DirectoryScanner:
             if item_found_callback:
                 item_found_callback(item)
 
-        # Step 3: Resolve collisions across the entire batch
+        # Step 3: Group files with matching domains into dedicated folders
+        if getattr(self.config, "group_by_domain", True):
+            from src.core.domain_matcher import DomainMatcher
+            DomainMatcher.group_files_by_domain(analyzed_items, self.config)
+
+        # Step 4: Resolve collisions across the entire batch
         self.collision_handler.resolve_batch_collisions(analyzed_items)
 
-        # Step 4: Finalize summary counts and selection states
+        # Step 5: Finalize summary counts and selection states
         for item in analyzed_items:
             if item.status == FileStatus.READY_TO_RENAME:
                 item.is_selected = True

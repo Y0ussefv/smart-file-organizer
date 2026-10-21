@@ -350,3 +350,279 @@ def verify_ai_api_key(api_key: str, provider: str = "auto", model: Optional[str]
         return verify_groq_api_key(api_key, model=model or DEFAULT_GROQ_MODEL)
     else:
         return verify_google_api_key(api_key, model=model or DEFAULT_GEMINI_MODEL)
+
+
+def analyze_document_text_with_groq(
+    text: str,
+    api_key: str,
+    model: str = DEFAULT_GROQ_MODEL,
+    timeout_seconds: int = 15
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Analyzes document text (such as extracted PDF content) with Groq Cloud (Qwen 3.8 27B)
+    to generate a clean, specific title in 2 to 5 words for a filename.
+    Returns: (title, error_message)
+    """
+    clean_key = api_key.strip()
+    if not clean_key:
+        return None, "Groq API key is not configured."
+
+    snippet = (text or "").strip()[:4000]
+    if len(snippet) < 15:
+        return None, "Insufficient document text to analyze."
+
+    prompt = (
+        "Read the following document text and generate a concise, specific title in 2 to 5 words suitable for a filename. "
+        "Focus on the main subject, entity, project, company, product, or document topic "
+        "(e.g., 'Delfa Brand Agreement', 'CI CD Architecture Guide', 'Quarterly Financial Review', 'Delfa Invoice Summary'). "
+        "Return ONLY the plain title text with no punctuation, no markdown, and no extra explanation.\n\n"
+        f"Document Content:\n{snippet}"
+    )
+
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {clean_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": model or DEFAULT_GROQ_MODEL,
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "max_tokens": 30,
+        "temperature": 0.2
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=timeout_seconds)
+        if response.status_code != 200:
+            try:
+                err_data = response.json()
+                msg = err_data.get("error", {}).get("message", response.text)
+            except Exception:
+                msg = response.text
+            return None, f"Groq API Error ({response.status_code}): {msg}"
+
+        result_json = response.json()
+        choices = result_json.get("choices", [])
+        if not choices:
+            return None, "No title returned by Groq AI."
+
+        raw_title = choices[0].get("message", {}).get("content", "").strip()
+        clean_title = re.sub(r'[\'"`*#_]+', ' ', raw_title).strip()
+        clean_title = re.sub(r'\s+', ' ', clean_title)
+
+        if len(clean_title) < 2:
+            return None, "Groq AI generated an uninformative title."
+
+        return clean_title, None
+
+    except requests.exceptions.Timeout:
+        return None, "Groq API request timed out."
+    except requests.exceptions.RequestException as e:
+        return None, f"Network error connecting to Groq API: {str(e)}"
+    except Exception as e:
+        return None, f"Unexpected error analyzing text with Groq: {str(e)}"
+
+
+def analyze_document_text_with_google(
+    text: str,
+    api_key: str,
+    model: str = DEFAULT_GEMINI_MODEL,
+    timeout_seconds: int = 15
+) -> Tuple[Optional[str], Optional[str]]:
+    """Analyzes document text with Google Gemini."""
+    clean_key = api_key.strip()
+    if not clean_key:
+        return None, "Google API key is not configured."
+
+    snippet = (text or "").strip()[:4000]
+    if len(snippet) < 15:
+        return None, "Insufficient document text to analyze."
+
+    prompt = (
+        "Read the following document text and generate a concise, specific title in 2 to 5 words suitable for a filename. "
+        "Focus on the main subject, entity, project, company, product, or document topic "
+        "(e.g., 'Delfa Brand Agreement', 'CI CD Architecture Guide', 'Quarterly Financial Review', 'Delfa Invoice Summary'). "
+        "Return ONLY the plain title text with no punctuation, no markdown, and no extra explanation.\n\n"
+        f"Document Content:\n{snippet}"
+    )
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model or DEFAULT_GEMINI_MODEL}:generateContent?key={clean_key}"
+    payload = {
+        "contents": [{"parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 30}
+    }
+
+    try:
+        response = requests.post(url, json=payload, timeout=timeout_seconds)
+        if response.status_code != 200:
+            return None, f"Google API Error ({response.status_code})"
+        result_json = response.json()
+        candidates = result_json.get("candidates", [])
+        if not candidates:
+            return None, "No title returned by Google AI."
+        parts = candidates[0].get("content", {}).get("parts", [])
+        if not parts:
+            return None, "Empty response from Google AI."
+        raw_title = parts[0].get("text", "").strip()
+        clean_title = re.sub(r'[\'"`*#_]+', ' ', raw_title).strip()
+        clean_title = re.sub(r'\s+', ' ', clean_title)
+        return clean_title if len(clean_title) >= 2 else None, None
+    except Exception as e:
+        return None, str(e)
+
+
+def analyze_image_bytes_with_groq(
+    image_bytes: bytes,
+    api_key: str,
+    mime_type: str = "image/jpeg",
+    model: str = DEFAULT_GROQ_MODEL,
+    timeout_seconds: int = 15
+) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Sends raw image bytes directly to Groq Cloud Vision.
+    Returns: (title, error_message)
+    """
+    clean_key = api_key.strip()
+    if not clean_key:
+        return None, "Groq API key is not configured."
+
+    try:
+        Image.MAX_IMAGE_PIXELS = None
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            if img.mode in ("RGBA", "P", "LA"):
+                bg = Image.new("RGB", img.size, (255, 255, 255))
+                if img.mode == "P":
+                    img = img.convert("RGBA")
+                bg.paste(img, mask=img.split()[-1] if img.mode == "RGBA" else None)
+                img = bg
+            elif img.mode != "RGB":
+                img = img.convert("RGB")
+
+            w, h = img.size
+            max_dim = 1024
+            if max(w, h) > max_dim:
+                scale = max_dim / max(w, h)
+                img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            ready_bytes = buf.getvalue()
+            ready_mime = "image/jpeg"
+
+        base64_data = base64.b64encode(ready_bytes).decode("utf-8")
+        prompt = (
+            "Analyze this image and generate a short, descriptive, specific title in 2 to 5 words for a filename. "
+            "Focus on the main subject, document title, product, diagram, screenshot, or scene "
+            "(e.g., 'Delfa Brand Logo', 'Company Revenue Chart', 'User Login Screen', 'Contract Agreement Form'). "
+            "Return ONLY the plain title text with no punctuation, no markdown, and no extra explanation."
+        )
+
+        url = "https://api.groq.com/openai/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {clean_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": model or DEFAULT_GROQ_MODEL,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{ready_mime};base64,{base64_data}"
+                            }
+                        }
+                    ]
+                }
+            ],
+            "max_tokens": 30,
+            "temperature": 0.2
+        }
+
+        response = requests.post(url, headers=headers, json=payload, timeout=timeout_seconds)
+        if response.status_code != 200:
+            try:
+                err_data = response.json()
+                msg = err_data.get("error", {}).get("message", response.text)
+            except Exception:
+                msg = response.text
+            return None, f"Groq API Error ({response.status_code}): {msg}"
+
+        result_json = response.json()
+        choices = result_json.get("choices", [])
+        if not choices:
+            return None, "No description returned by Groq AI."
+
+        raw_title = choices[0].get("message", {}).get("content", "").strip()
+        clean_title = re.sub(r'[\'"`*#_]+', ' ', raw_title).strip()
+        clean_title = re.sub(r'\s+', ' ', clean_title)
+
+        if len(clean_title) < 2:
+            return None, "Groq AI generated an uninformative title."
+
+        return clean_title, None
+
+    except Exception as e:
+        return None, f"Groq Vision byte analysis error: {str(e)}"
+
+
+def analyze_pdf_with_ai(
+    file_path: Path,
+    api_key: str,
+    provider: str = "auto",
+    model: Optional[str] = None,
+    extracted_text: str = ""
+) -> Tuple[Optional[str], Optional[str], str]:
+    """
+    Scans a PDF file using AI:
+    - If text content is available, performs LLM document understanding.
+    - If text is sparse (scanned/image-only PDF), extracts page 1 image
+      and scans it with Vision AI.
+    Returns: (title, error_message, provider_name)
+    """
+    active_provider = detect_ai_provider(api_key, provider)
+    clean_text = (extracted_text or "").strip()
+
+    # 1. If text is available (>= 25 characters), use text analysis
+    if len(clean_text) >= 25:
+        if active_provider == "groq":
+            mod = model if (model and "qwen" in model) else DEFAULT_GROQ_MODEL
+            title, err = analyze_document_text_with_groq(clean_text, api_key, model=mod)
+            return title, err, "Groq Cloud"
+        else:
+            mod = model if (model and "gemini" in model) else DEFAULT_GEMINI_MODEL
+            title, err = analyze_document_text_with_google(clean_text, api_key, model=mod)
+            return title, err, "Google Gemini"
+
+    # 2. Text is empty or scanned: try extracting first page image from PDF
+    try:
+        import pypdf
+        reader = pypdf.PdfReader(str(file_path))
+        if reader.pages:
+            first_page = reader.pages[0]
+            if hasattr(first_page, "images") and len(first_page.images) > 0:
+                first_img = first_page.images[0]
+                img_bytes = first_img.data
+                if active_provider == "groq":
+                    title, err = analyze_image_bytes_with_groq(img_bytes, api_key, model=model or DEFAULT_GROQ_MODEL)
+                    return title, err, "Groq Cloud (Scanned PDF)"
+                else:
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tf:
+                        tf.write(img_bytes)
+                        tf_path = Path(tf.name)
+                    try:
+                        title, err = analyze_image_with_google(tf_path, api_key, model=model or DEFAULT_GEMINI_MODEL)
+                        return title, err, "Google Gemini (Scanned PDF)"
+                    finally:
+                        tf_path.unlink(missing_ok=True)
+    except Exception as e:
+        return None, f"Could not extract PDF visual content: {str(e)}", active_provider
+
+    return None, "No readable text or page images detected in PDF.", active_provider
+

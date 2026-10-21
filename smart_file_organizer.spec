@@ -14,7 +14,9 @@ a = Analysis(
     [str(project_root / 'src' / 'main.py')],
     pathex=[str(project_root)],
     binaries=[],
-    datas=[],
+    datas=[
+        (str(project_root / 'src' / 'app' / 'assets'), 'src/app/assets'),
+    ],
     hiddenimports=[
         'PySide6',
         'PySide6.QtCore',
@@ -25,10 +27,37 @@ a = Analysis(
         'openpyxl',
         'pptx',
         'PIL',
+        'PIL.Image',
+        'PIL.ExifTags',
+        'requests',
         'sqlite3',
         'csv',
         'json',
         'xml',
+        'src.core.models',
+        'src.core.domain_matcher',
+        'src.core.ai_vision',
+        'src.core.scanner',
+        'src.core.rename_engine',
+        'src.core.undo_manager',
+        'src.core.collision_handler',
+        'src.core.content_extractors',
+        'src.core.file_classifier',
+        'src.core.filename_sanitizer',
+        'src.core.title_generator',
+        'src.storage.settings',
+        'src.storage.history',
+        'src.reports.report_manager',
+        'src.reports.csv_report',
+        'src.reports.txt_report',
+        'src.reports.json_report',
+        'src.app.main_window',
+        'src.app.dialogs',
+        'src.app.theme',
+        'src.app.widgets.preview_table',
+        'src.app.widgets.stats_widget',
+        'src.utils.platform_utils',
+        'src.utils.logging_config',
     ],
     hookspath=[],
     hooksconfig={},
@@ -52,6 +81,10 @@ pyz = PYZ(
     cipher=block_cipher
 )
 
+icon_ico = str(project_root / 'src' / 'app' / 'assets' / 'icon.ico')
+icon_png = str(project_root / 'src' / 'app' / 'assets' / 'icon.png')
+selected_icon = icon_ico if (project_root / 'src' / 'app' / 'assets' / 'icon.ico').exists() else None
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -71,4 +104,24 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    icon=selected_icon,
 )
+
+# macOS Application Bundle (.app)
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        exe,
+        name='SmartFileOrganizer.app',
+        icon=icon_png,
+        bundle_identifier='com.rnj.smartfileorganizer',
+        info_plist={
+            'CFBundleName': 'Smart File Organizer',
+            'CFBundleDisplayName': 'Smart File Organizer',
+            'CFBundleGetInfoString': "Intelligent Content-Aware File Organizer & Renamer",
+            'CFBundleIdentifier': "com.rnj.smartfileorganizer",
+            'CFBundleVersion': "1.2.0",
+            'CFBundleShortVersionString': "1.2.0",
+            'NSHumanReadableCopyright': "Copyright © 2026",
+            'NSHighResolutionCapable': True,
+        }
+    )

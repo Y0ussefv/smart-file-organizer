@@ -62,6 +62,8 @@ class ScanConfig:
     google_ai_model: str = "gemini-3.8-flash"
     groq_api_key: str = ""
     groq_model: str = "qwen/qwen3.8-27b"
+    group_by_domain: bool = True
+    min_domain_files: int = 2
     rename_unlabelled_images: bool = False
     max_file_size_mb: int = 100
     export_dir: Optional[Path] = None
@@ -84,6 +86,8 @@ class ScanConfig:
             "google_ai_model": self.google_ai_model,
             "groq_api_key": self.groq_api_key,
             "groq_model": self.groq_model,
+            "group_by_domain": self.group_by_domain,
+            "min_domain_files": self.min_domain_files,
             "rename_unlabelled_images": self.rename_unlabelled_images,
             "max_file_size_mb": self.max_file_size_mb,
             "export_dir": str(self.export_dir) if self.export_dir else None,
@@ -108,6 +112,8 @@ class ScanConfig:
             google_ai_model=data.get("google_ai_model", "gemini-3.8-flash"),
             groq_api_key=data.get("groq_api_key", ""),
             groq_model=data.get("groq_model", "qwen/qwen3.8-27b"),
+            group_by_domain=data.get("group_by_domain", True),
+            min_domain_files=data.get("min_domain_files", 2),
             rename_unlabelled_images=data.get("rename_unlabelled_images", False),
             max_file_size_mb=data.get("max_file_size_mb", 100),
             export_dir=Path(data["export_dir"]) if data.get("export_dir") else None,
@@ -124,6 +130,8 @@ class FileItem:
     original_ext: str = ""
     new_name: str = ""
     new_path: Optional[Path] = None
+    domain: Optional[str] = None
+    target_subfolder: Optional[str] = None
     file_type: str = "Unknown"
     file_size: int = 0
     sha256: Optional[str] = None
@@ -148,7 +156,13 @@ class FileItem:
 
     @property
     def has_name_changed(self) -> bool:
-        return bool(self.new_name and self.new_name != self.original_name)
+        return bool((self.new_name and self.new_name != self.original_name) or self.target_subfolder)
+
+    @property
+    def proposed_display_path(self) -> str:
+        if self.target_subfolder:
+            return f"{self.target_subfolder}/{self.new_name}"
+        return self.new_name
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -159,6 +173,9 @@ class FileItem:
             "original_ext": self.original_ext,
             "new_name": self.new_name,
             "new_path": str(self.new_path) if self.new_path else None,
+            "domain": self.domain,
+            "target_subfolder": self.target_subfolder,
+            "proposed_display_path": self.proposed_display_path,
             "file_type": self.file_type,
             "file_size": self.file_size,
             "formatted_size": self.formatted_size,

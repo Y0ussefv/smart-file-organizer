@@ -134,6 +134,9 @@ def sanitize_stem(
     return stem
 
 
+sanitize_component_name = sanitize_stem
+
+
 def build_safe_filename(
     candidate_name: str,
     original_filename: str,
