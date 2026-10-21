@@ -66,3 +66,19 @@ class TestDirectoryScanner:
 
         items, summary = scanner.scan(progress_callback=on_progress)
         assert len(items) <= 3
+
+    def test_ignores_macos_app_bundles(self, tmp_path):
+        """Ensure .app, .framework, and other application bundles are never entered."""
+        app_bundle = tmp_path / "Cyberduck.app"
+        app_bundle.mkdir()
+        (app_bundle / "internal_binary").write_text("protected binary")
+
+        user_doc = tmp_path / "my_document.pdf"
+        user_doc.write_text("PDF content")
+
+        cfg = ScanConfig(root_path=tmp_path, recursive=True)
+        scanner = DirectoryScanner(cfg)
+        items, summary = scanner.scan()
+
+        assert summary.total_files == 1
+        assert items[0].original_name == "my_document.pdf"

@@ -24,6 +24,12 @@ IGNORED_DIR_NAMES = {
     "$recycle.bin", "system volume information", ".idea", ".vscode"
 }
 
+# Application packages and bundle extensions that should never be traversed as folders
+IGNORED_DIR_EXTS = {
+    ".app", ".framework", ".plugin", ".bundle", ".pkg", ".kext",
+    ".dockfileplugin", ".saver", ".prefpane"
+}
+
 IGNORED_FILE_NAMES = {
     "thumbs.db", "desktop.ini", ".ds_store"
 }
@@ -85,10 +91,12 @@ class DirectoryScanner:
         try:
             if self.config.recursive:
                 for dirpath, dirnames, filenames in os.walk(root):
-                    # Filter out ignored directories in-place
+                    # Filter out ignored directories and application bundles in-place
                     dirnames[:] = [
                         d for d in dirnames
-                        if d.lower() not in IGNORED_DIR_NAMES and (self.config.include_hidden or not d.startswith("."))
+                        if d.lower() not in IGNORED_DIR_NAMES
+                        and not any(d.lower().endswith(ext) for ext in IGNORED_DIR_EXTS)
+                        and (self.config.include_hidden or not d.startswith("."))
                     ]
                     for fname in filenames:
                         if fname.lower() in IGNORED_FILE_NAMES:

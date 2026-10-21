@@ -60,7 +60,24 @@ class RenameEngine:
             if progress_callback:
                 progress_callback(idx, total_eligible, f"Renaming {item.original_name} -> {target_label}")
 
-            record = self._rename_single_file(item, sess_id)
+            try:
+                record = self._rename_single_file(item, sess_id)
+            except Exception as e:
+                item.status = FileStatus.ERROR
+                item.error_message = str(e)
+                item.explanation = f"Error during rename: {str(e)}"
+                record = RenameHistoryRecord(
+                    session_id=sess_id,
+                    timestamp=datetime.now().isoformat(),
+                    original_path=str(item.original_path),
+                    new_path=str(item.original_path),
+                    original_name=item.original_name,
+                    new_name=item.original_name,
+                    file_size=item.file_size,
+                    status="ERROR",
+                    error=str(e),
+                )
+
             records.append(record)
 
             if item_callback:
@@ -86,9 +103,27 @@ class RenameEngine:
         orig_path = item.original_path
 
         # Determine target directory and path
+        display_new_name = f"{item.target_subfolder}/{item.new_name}" if item.target_subfolder else item.new_name
+
         if item.target_subfolder:
             dest_dir = orig_path.parent / item.target_subfolder
-            dest_dir.mkdir(parents=True, exist_ok=True)
+            try:
+                dest_dir.mkdir(parents=True, exist_ok=True)
+            except (PermissionError, OSError) as e:
+                item.status = FileStatus.ERROR
+                item.error_message = str(e)
+                item.explanation = f"Cannot create subfolder '{item.target_subfolder}': {str(e)}"
+                return RenameHistoryRecord(
+                    session_id=session_id,
+                    timestamp=now_iso,
+                    original_path=str(orig_path),
+                    new_path=str(dest_dir / item.new_name),
+                    original_name=item.original_name,
+                    new_name=display_new_name,
+                    file_size=item.file_size,
+                    status="ERROR",
+                    error=str(e),
+                )
             target_path = dest_dir / item.new_name
         else:
             target_path = item.original_path.parent / item.new_name
