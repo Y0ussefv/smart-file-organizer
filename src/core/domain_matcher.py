@@ -22,7 +22,7 @@ DOMAIN_EXCLUDED_TOKENS = {
     "pdf", "doc", "docx", "document", "documents", "word", "excel", "sheet",
     "sheets", "xlsx", "csv", "tsv", "powerpoint", "ppt", "pptx", "presentation",
     "slides", "text", "txt", "file", "files", "scan", "scans", "scanned", "page",
-    "pages", "mp3", "wav", "audio", "video", "mp4", "mkv", "zip", "archive",
+    "pages", "mp3", "wav", "audio", "video", "videos", "mp4", "mkv", "mov", "avi", "webm", "wmv", "m4v", "flv", "clip", "footage", "recording", "zip", "archive",
 
     # Generic status & document boilerplate
     "report", "reports", "summary", "contract", "contracts", "agreement",

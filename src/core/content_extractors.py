@@ -726,7 +726,7 @@ class ImageExtractor(BaseExtractor):
                             is_supported=True
                         )
 
-            # 2. Local EXIF metadata inspection
+            # 2. Local EXIF and image header/PNG metadata inspection
             Image.MAX_IMAGE_PIXELS = None
             with Image.open(str(file_path)) as img:
                 width, height = img.size
@@ -737,20 +737,31 @@ class ImageExtractor(BaseExtractor):
                 camera_model = None
                 explanation = ""
 
-                exif_data = img.getexif() if hasattr(img, "getexif") else None
-                if exif_data:
-                    for tag_id, value in exif_data.items():
-                        tag_name = ExifTags.TAGS.get(tag_id, str(tag_id))
-                        if tag_name in ("ImageDescription", "XPTitle", "UserComment") and isinstance(value, str):
-                            clean_val = value.strip()
-                            if len(clean_val) > 2:
-                                candidate_title = clean_val
-                                explanation = f"Extracted description from image EXIF ({tag_name}): '{candidate_title}'"
-                                break
-                        elif tag_name == "DateTimeOriginal" and isinstance(value, str):
-                            date_taken = value.strip()
-                        elif tag_name == "Model" and isinstance(value, str):
-                            camera_model = value.strip()
+                # 2a. Check PNG/image info dict (Figma, Photoshop, Screenshot apps, etc.)
+                if hasattr(img, "info") and isinstance(img.info, dict):
+                    for info_key in ("Title", "title", "Description", "description", "Headline", "UserComment", "Comment"):
+                        info_val = img.info.get(info_key)
+                        if isinstance(info_val, str) and len(info_val.strip()) > 2:
+                            candidate_title = info_val.strip()
+                            explanation = f"Extracted title from image metadata ({info_key}): '{candidate_title}'"
+                            break
+
+                # 2b. Check EXIF tags
+                if not candidate_title:
+                    exif_data = img.getexif() if hasattr(img, "getexif") else None
+                    if exif_data:
+                        for tag_id, value in exif_data.items():
+                            tag_name = ExifTags.TAGS.get(tag_id, str(tag_id))
+                            if tag_name in ("ImageDescription", "XPTitle", "XPKeywords", "XPComment", "XPAuthor", "UserComment", "DocumentName") and isinstance(value, str):
+                                clean_val = value.strip()
+                                if len(clean_val) > 2:
+                                    candidate_title = clean_val
+                                    explanation = f"Extracted description from image EXIF ({tag_name}): '{candidate_title}'"
+                                    break
+                            elif tag_name == "DateTimeOriginal" and isinstance(value, str):
+                                date_taken = value.strip()
+                            elif tag_name == "Model" and isinstance(value, str):
+                                camera_model = value.strip()
 
                 if not candidate_title and (camera_model or date_taken):
                     parts = []
@@ -762,11 +773,28 @@ class ImageExtractor(BaseExtractor):
                     candidate_title = " ".join(parts)
                     explanation = f"Derived title from image camera/timestamp metadata: '{candidate_title}'"
 
-                # If no EXIF title, derive title from cleaned stem (never use resolution size!)
+                # 2c. Recognize camera and screenshot timestamp filenames
+                if not candidate_title:
+                    stem = file_path.stem
+                    m_cam = re.match(r'^(?:IMG|PANO|DSC|PHOTO)[-_](\d{4})(\d{2})(\d{2})[-_](\d{2})(\d{2})(\d{2})', stem, re.IGNORECASE)
+                    if m_cam:
+                        y, mo, d, h, mi, s = m_cam.groups()
+                        prefix = "Panorama" if stem.upper().startswith("PANO") else "Photo"
+                        candidate_title = f"{prefix} {y}-{mo}-{d} {h}-{mi}-{s}"
+                        explanation = f"Derived title from camera timestamp: '{candidate_title}'"
+
+                    m_scr = re.match(r'^(?:Screenshot|Screen[-_]?Shot)[-_](\d{4}[-_]\d{2}[-_]\d{2})[-_at\s]*(\d{2}[-.:]\d{2}[-.:]\d{2})?', stem, re.IGNORECASE)
+                    if not candidate_title and m_scr:
+                        d_part = m_scr.group(1).replace('_', '-')
+                        t_part = m_scr.group(2).replace(':', '-').replace('.', '-') if m_scr.group(2) else ''
+                        candidate_title = f"Screenshot {d_part}" + (f" {t_part}" if t_part else "")
+                        explanation = f"Derived title from screenshot timestamp: '{candidate_title}'"
+
+                # 2d. Clean descriptive stem (never use resolution size!)
                 if not candidate_title:
                     clean_stem = re.sub(r'[\-_.]+', ' ', file_path.stem).strip()
                     if len(clean_stem) >= 3 and not clean_stem.isdigit() and not clean_stem.lower().startswith(("img_", "dsc_")):
-                        candidate_title = clean_stem
+                        candidate_title = clean_stem.title() if clean_stem.islower() else clean_stem
                         explanation = f"Derived title from cleaned image filename: '{candidate_title}'"
 
                 if not candidate_title:
@@ -902,19 +930,230 @@ class ExecutableExtractor(BaseExtractor):
         )
 
 
+class VideoExtractor(BaseExtractor):
+    """
+    Intelligent video content extractor supporting MP4, MOV, MKV, AVI, WebM, WMV, M4V, FLV.
+    Integrates:
+    1. AI Vision Keyframe Analysis: samples video frame and recognizes actions, subjects, tutorials,
+       presentations, or scene content using Groq Cloud or Google Gemini Vision.
+    2. Deep Container Metadata Parsing:
+       - MP4 / MOV: parses moov/udta/meta/ilst atoms (©nam, ©ART, ©day, desc, gnre), mvhd duration, tkhd resolution (4K, 1080p, 720p).
+       - AVI: parses RIFF LIST INFO chunks (INAM, IART, ISBJ, ICMT) and avih dimensions.
+       - MKV / WebM: parses EBML Segment Title and tags.
+    3. Camera & Screen Recording Pattern Normalization:
+       - VID_YYYYMMDD_HHMMSS -> Video YYYY-MM-DD HH-MM-SS
+       - Screen_Recording_YYYY-MM-DD -> Screen Recording YYYY-MM-DD
+       - Clean words and removes compression tags (1080p, x264, bluray).
+    """
+
+    VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".mkv", ".avi", ".webm", ".wmv", ".flv"}
+
+    def can_handle(self, ext: str, mime_type: Optional[str] = None) -> bool:
+        return ext.lower() in self.VIDEO_EXTS
+
+    def extract(self, file_path: Path, max_bytes: int = MAX_TEXT_READ_BYTES, config: Optional[Any] = None, **kwargs) -> ExtractionResult:
+        ext = file_path.suffix.lower()
+        file_type = f"{ext[1:].upper()} Video"
+
+        # 1. AI Vision Video Keyframe Recognition
+        if config:
+            api_key = (
+                getattr(config, "groq_api_key", "").strip()
+                or getattr(config, "google_api_key", "").strip()
+                or os.getenv("GROQ_API_KEY", "").strip()
+                or os.getenv("GEMINI_API_KEY", "").strip()
+            )
+            ai_enabled = getattr(config, "enable_google_ai", False) or getattr(config, "enable_ai_vision", False) or bool(api_key)
+            if ai_enabled and api_key:
+                try:
+                    from src.core.ai_vision import analyze_video_with_ai
+                    provider = getattr(config, "ai_provider", "auto")
+                    model = getattr(config, "groq_model" if api_key.startswith("gsk_") else "google_ai_model", None)
+                    ai_title, ai_error, provider_used = analyze_video_with_ai(file_path, api_key=api_key, provider=provider, model=model)
+                    if ai_title:
+                        return ExtractionResult(
+                            title=ai_title,
+                            summary=f"{provider_used} Video: {ai_title}",
+                            explanation=f"Video visual content recognized by {provider_used}: '{ai_title}'",
+                            file_type=file_type,
+                            is_supported=True
+                        )
+                except Exception:
+                    pass
+
+        # 2. Local Container & Metadata Inspection
+        candidate_title = None
+        duration_desc = ""
+        resolution_desc = ""
+        explanation = ""
+
+        # 2a. MP4 / MOV / M4V container atom parsing
+        if ext in {".mp4", ".mov", ".m4v"}:
+            try:
+                with open(file_path, "rb") as f:
+                    file_size = file_path.stat().st_size
+                    head = f.read(min(file_size, 2 * 1024 * 1024))
+
+                    tag_map = {
+                        b"\xa9nam": "title",
+                        b"\xa9ART": "artist",
+                        b"\xa9day": "year",
+                        b"desc": "description",
+                        b"ldes": "description",
+                        b"\xa9gen": "genre",
+                        b"gnre": "genre",
+                    }
+                    meta = {}
+                    for tag_bytes, key in tag_map.items():
+                        pos = head.find(tag_bytes)
+                        if pos != -1 and pos + 8 < len(head):
+                            data_pos = head.find(b"data", pos, pos + 256)
+                            if data_pos != -1 and data_pos + 16 <= len(head):
+                                data_size = struct.unpack(">I", head[data_pos - 4:data_pos])[0]
+                                val_bytes = head[data_pos + 8: data_pos - 4 + data_size]
+                                val_str = val_bytes.decode("utf-8", errors="ignore").strip("\x00 \t\r\n")
+                                if val_str and key not in meta:
+                                    meta[key] = val_str
+
+                    if "title" in meta:
+                        candidate_title = meta["title"]
+                        if "artist" in meta:
+                            candidate_title = f"{meta['artist']} - {candidate_title}"
+                        explanation = f"Extracted title from MP4 metadata: '{candidate_title}'"
+
+                    mvhd_pos = head.find(b"mvhd")
+                    if mvhd_pos != -1 and mvhd_pos + 28 <= len(head):
+                        version = head[mvhd_pos + 4]
+                        if version == 0:
+                            timescale, duration = struct.unpack(">II", head[mvhd_pos + 16:mvhd_pos + 24])
+                            if timescale > 0:
+                                dur_secs = int(duration / timescale)
+                                duration_desc = f"{dur_secs // 60}m {dur_secs % 60}s"
+
+                    tkhd_pos = head.find(b"tkhd")
+                    if tkhd_pos != -1 and tkhd_pos + 84 <= len(head):
+                        w_raw, h_raw = struct.unpack(">II", head[tkhd_pos + 76:tkhd_pos + 84])
+                        w = w_raw >> 16
+                        h = h_raw >> 16
+                        if 100 <= w <= 8000 and 100 <= h <= 8000:
+                            res_label = "4K" if w >= 3800 else ("1080p" if h >= 1080 else ("720p" if h >= 720 else f"{w}x{h}"))
+                            resolution_desc = f"{w}x{h} ({res_label})"
+            except Exception:
+                pass
+
+        # 2b. AVI RIFF INFO parsing
+        elif ext == ".avi":
+            try:
+                with open(file_path, "rb") as f:
+                    riff_data = f.read(min(65536, file_path.stat().st_size))
+                    info_idx = riff_data.find(b"LIST")
+                    if info_idx != -1 and b"INFO" in riff_data[info_idx:info_idx + 12]:
+                        inam_idx = riff_data.find(b"INAM", info_idx)
+                        title_str = None
+                        artist_str = None
+                        if inam_idx != -1:
+                            sz = struct.unpack("<I", riff_data[inam_idx + 4:inam_idx + 8])[0]
+                            title_str = riff_data[inam_idx + 8:inam_idx + 8 + sz].decode("utf-8", "ignore").strip("\x00 \t\r\n")
+                        iart_idx = riff_data.find(b"IART", info_idx)
+                        if iart_idx != -1:
+                            sz = struct.unpack("<I", riff_data[iart_idx + 4:iart_idx + 8])[0]
+                            artist_str = riff_data[iart_idx + 8:iart_idx + 8 + sz].decode("utf-8", "ignore").strip("\x00 \t\r\n")
+
+                        if artist_str and title_str:
+                            candidate_title = f"{artist_str} - {title_str}"
+                        elif title_str:
+                            candidate_title = title_str
+
+                    if candidate_title:
+                        explanation = f"Extracted video title from AVI RIFF INFO: '{candidate_title}'"
+
+                    avih_idx = riff_data.find(b"avih")
+                    if avih_idx != -1 and avih_idx + 40 <= len(riff_data):
+                        w, h = struct.unpack("<II", riff_data[avih_idx + 32:avih_idx + 40])
+                        if 100 <= w <= 8000 and 100 <= h <= 8000:
+                            resolution_desc = f"{w}x{h}"
+            except Exception:
+                pass
+
+        # 2c. MKV / WebM Matroska parsing
+        elif ext in {".mkv", ".webm"}:
+            try:
+                with open(file_path, "rb") as f:
+                    header = f.read(min(32768, file_path.stat().st_size))
+                    t_idx = header.find(b"\x7b\xa9")
+                    if t_idx != -1 and t_idx + 3 < len(header):
+                        str_len = header[t_idx + 2]
+                        if 2 < str_len < 100 and t_idx + 3 + str_len <= len(header):
+                            raw_t = header[t_idx + 3:t_idx + 3 + str_len].decode("utf-8", "ignore").strip("\x00 \t\r\n")
+                            if len(raw_t) >= 2:
+                                candidate_title = raw_t
+                                explanation = f"Extracted title from Matroska/WebM metadata: '{candidate_title}'"
+            except Exception:
+                pass
+
+        # 2d. Clean Camera & Screen Recording Filenames
+        if not candidate_title:
+            stem = file_path.stem
+            m_vid = re.match(r'^(?:VID|MOV|VIDEO)[-_](\d{4})(\d{2})(\d{2})[-_](\d{2})(\d{2})(\d{2})', stem, re.IGNORECASE)
+            if m_vid:
+                y, mo, d, h, mi, s = m_vid.groups()
+                candidate_title = f"Video {y}-{mo}-{d} {h}-{mi}-{s}"
+                explanation = f"Derived title from camera video timestamp: '{candidate_title}'"
+
+            if not candidate_title:
+                m_scr = re.match(r'^(?:Screen[-_]?Recording|Screenshot)[-_](\d{4}[-_]\d{2}[-_]\d{2})[-_at\s]*(\d{2}[-.:]\d{2}[-.:]\d{2})?', stem, re.IGNORECASE)
+                if m_scr:
+                    d_part = m_scr.group(1).replace('_', '-')
+                    t_part = m_scr.group(2).replace(':', '-').replace('.', '-') if m_scr.group(2) else ''
+                    candidate_title = f"Screen Recording {d_part}" + (f" {t_part}" if t_part else "")
+                    explanation = f"Derived title from screen recording timestamp: '{candidate_title}'"
+
+            # 2e. Clean descriptive video stem
+            if not candidate_title:
+                cleaned = re.sub(r'[\-_.]+', ' ', stem)
+                cleaned = re.sub(r'\b(1080p|720p|4k|2160p|480p|x264|x265|hevc|aac|bluray|web[\s-]?dl|h264|h265|dvdrip)\b', '', cleaned, flags=re.IGNORECASE)
+                cleaned = re.sub(r'\s+', ' ', cleaned).strip()
+                if len(cleaned) >= 3 and not cleaned.isdigit() and not cleaned.lower().startswith(("vid_", "mov_")):
+                    candidate_title = cleaned.title() if cleaned.islower() else cleaned
+                    explanation = f"Derived title from cleaned video filename: '{candidate_title}'"
+
+        summary_parts = [file_type]
+        if resolution_desc:
+            summary_parts.append(resolution_desc)
+        if duration_desc:
+            summary_parts.append(f"Duration: {duration_desc}")
+        summary = ", ".join(summary_parts)
+
+        if not explanation:
+            explanation = f"{file_type} inspected; original filename preserved."
+
+        return ExtractionResult(
+            title=candidate_title,
+            summary=summary,
+            explanation=explanation,
+            file_type=file_type,
+            is_supported=True
+        )
+
+
 class MediaExtractor(BaseExtractor):
     """Extracts audio and video metadata from WAV, MP3, FLAC, OGG, MP4, MKV, etc."""
 
     AUDIO_EXTS = {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".wma", ".aac"}
-    VIDEO_EXTS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".wmv"}
+    VIDEO_EXTS = {".mp4", ".mkv", ".mov", ".avi", ".webm", ".wmv", ".m4v", ".flv"}
 
     def can_handle(self, ext: str, mime_type: Optional[str] = None) -> bool:
         return ext.lower() in self.AUDIO_EXTS or ext.lower() in self.VIDEO_EXTS
 
     def extract(self, file_path: Path, max_bytes: int = MAX_TEXT_READ_BYTES, config: Optional[Any] = None, **kwargs) -> ExtractionResult:
         ext = file_path.suffix.lower()
+
+        # Delegate video files to VideoExtractor
+        if ext in self.VIDEO_EXTS:
+            return VideoExtractor().extract(file_path, max_bytes=max_bytes, config=config, **kwargs)
+
         is_audio = ext in self.AUDIO_EXTS
-        file_type = f"{ext[1:].upper()} Audio" if is_audio else f"{ext[1:].upper()} Video"
+        file_type = f"{ext[1:].upper()} Audio" if is_audio else f"{ext[1:].upper()} Media"
 
         candidate_title = None
         summary = ""

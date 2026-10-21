@@ -17,6 +17,7 @@ from src.core.content_extractors import (
     TextExtractor,
     SourceCodeExtractor,
     ImageExtractor,
+    VideoExtractor,
     ExecutableExtractor,
     MediaExtractor,
     FontExtractor,
@@ -37,6 +38,7 @@ MAGIC_SIGNATURES = [
     (b"PK\x03\x04", ".zip", "ZIP Archive"),  # Also base container for docx/xlsx/pptx
     (b"SQLite format 3\x00", ".sqlite", "SQLite Database"),
     (b"MZ", ".exe", "Windows Executable"),
+    (b"\x1a\x45\xdf\xa3", ".mkv", "Matroska Video"),
     (b"RIFF", ".wav", "RIFF Audio/Video"),
     (b"ID3", ".mp3", "MP3 Audio"),
     (b"\x00\x01\x00\x00", ".ttf", "TrueType Font"),
@@ -60,6 +62,7 @@ class FileClassifier:
             SourceCodeExtractor(),
             TextExtractor(),
             ImageExtractor(),
+            VideoExtractor(),
             ExecutableExtractor(),
             MediaExtractor(),
             FontExtractor(),

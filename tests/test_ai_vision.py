@@ -250,3 +250,86 @@ class TestAIVision:
             assert res.title == "Delfa Partnership Agreement"
             assert "Groq Cloud" in res.explanation
 
+    def test_image_metadata_png_info(self, tmp_path):
+        """Verify PNG info dictionary tags (Title, Description) are extracted."""
+        from PIL import PngImagePlugin
+        from src.core.content_extractors import ImageExtractor
+
+        img_path = tmp_path / "diagram.png"
+        img = Image.new("RGB", (100, 100), color="white")
+        info = PngImagePlugin.PngInfo()
+        info.add_text("Title", "Quarterly Cloud Architecture Diagram")
+        img.save(str(img_path), pnginfo=info)
+
+        extractor = ImageExtractor()
+        res = extractor.extract(img_path)
+        assert res.title == "Quarterly Cloud Architecture Diagram"
+        assert "Title" in res.explanation
+
+    def test_image_camera_timestamp_normalization(self, tmp_path):
+        """Verify camera timestamps like IMG_20240315_142010 are cleanly formatted."""
+        from src.core.content_extractors import ImageExtractor
+
+        img_path = tmp_path / "IMG_20240315_142010.jpg"
+        img = Image.new("RGB", (50, 50), color="blue")
+        img.save(str(img_path))
+
+        extractor = ImageExtractor()
+        res = extractor.extract(img_path)
+        assert res.title == "Photo 2024-03-15 14-20-10"
+
+    def test_video_extractor_can_handle(self):
+        """Verify VideoExtractor and MediaExtractor handle video formats."""
+        from src.core.content_extractors import VideoExtractor, MediaExtractor
+        ve = VideoExtractor()
+        me = MediaExtractor()
+        for ext in (".mp4", ".mov", ".avi", ".mkv", ".webm", ".wmv"):
+            assert ve.can_handle(ext)
+            assert me.can_handle(ext)
+
+    def test_video_camera_timestamp_normalization(self, tmp_path):
+        """Verify camera video timestamp normalization."""
+        from src.core.content_extractors import VideoExtractor
+
+        vid_path = tmp_path / "VID_20240315_120530.mp4"
+        vid_path.write_bytes(b"\x00" * 100)
+
+        extractor = VideoExtractor()
+        res = extractor.extract(vid_path)
+        assert res.title == "Video 2024-03-15 12-05-30"
+        assert res.is_supported is True
+
+    def test_video_cleaned_descriptive_title(self, tmp_path):
+        """Verify video filenames with compression tags are cleaned."""
+        from src.core.content_extractors import VideoExtractor
+
+        vid_path = tmp_path / "delfa_product_overview_1080p_x264.mp4"
+        vid_path.write_bytes(b"\x00" * 100)
+
+        extractor = VideoExtractor()
+        res = extractor.extract(vid_path)
+        assert res.title == "Delfa Product Overview"
+        assert "1080p" not in res.title
+
+    @patch("src.core.ai_vision.analyze_video_with_ai")
+    def test_video_extractor_invokes_ai_vision(self, mock_analyze, tmp_path):
+        """Verify VideoExtractor calls AI vision when API key is provided."""
+        from src.core.content_extractors import VideoExtractor
+
+        vid_path = tmp_path / "clip.mp4"
+        vid_path.write_bytes(b"\x00" * 200)
+
+        mock_analyze.return_value = ("Delfa Brand Keynote Presentation", None, "Groq Cloud Vision")
+
+        config = ScanConfig(
+            root_path=tmp_path,
+            groq_api_key="gsk_test_key_123",
+            enable_google_ai=True
+        )
+
+        extractor = VideoExtractor()
+        res = extractor.extract(vid_path, config=config)
+
+        assert res.title == "Delfa Brand Keynote Presentation"
+        assert "Groq Cloud Vision" in res.explanation
+

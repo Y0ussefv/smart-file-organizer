@@ -68,6 +68,7 @@ def analyze_image_with_groq(
     image_path: Path,
     api_key: str,
     model: str = DEFAULT_GROQ_MODEL,
+    prompt: Optional[str] = None,
     timeout_seconds: int = 15
 ) -> Tuple[Optional[str], Optional[str]]:
     """
@@ -82,12 +83,14 @@ def analyze_image_with_groq(
         image_bytes, mime_type = prepare_image_for_ai(image_path)
         base64_data = base64.b64encode(image_bytes).decode("utf-8")
 
-        prompt = (
+        default_prompt = (
             "Analyze this image and generate a short, descriptive, specific title in 2 to 5 words for a filename. "
-            "Focus on the main subject, document title, product, diagram, screenshot, or scene "
-            "(e.g., 'Eiffel_Tower_Sunset', 'Company_Revenue_Chart', 'User_Login_Screen', 'Golden_Retriever_Puppy', 'Math_Formula_Notes'). "
-            "Return ONLY the plain title text with no punctuation, no markdown, and no extra explanation."
+            "Identify precisely what is integrated inside: brand or organization name, product, document type "
+            "(e.g., invoice, agreement, passport, receipt, certificate), chart/diagram topic, user interface screen, or scene "
+            "(e.g., 'Delfa Brand Logo', 'Company Revenue Chart', 'User Login Screen', 'Golden Retriever Puppy', 'Contract Agreement Form'). "
+            "Return ONLY the plain title text with spaces between words, no punctuation, no markdown, and no extra explanation."
         )
+        active_prompt = prompt or default_prompt
 
         url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {
@@ -100,7 +103,7 @@ def analyze_image_with_groq(
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt},
+                        {"type": "text", "text": active_prompt},
                         {
                             "type": "image_url",
                             "image_url": {
@@ -150,6 +153,7 @@ def analyze_image_with_google(
     image_path: Path,
     api_key: str,
     model: str = DEFAULT_GEMINI_MODEL,
+    prompt: Optional[str] = None,
     timeout_seconds: int = 15
 ) -> Tuple[Optional[str], Optional[str]]:
     """
@@ -164,12 +168,14 @@ def analyze_image_with_google(
         image_bytes, mime_type = prepare_image_for_ai(image_path)
         base64_data = base64.b64encode(image_bytes).decode("utf-8")
 
-        prompt = (
+        default_prompt = (
             "Analyze this image and generate a short, descriptive, specific title in 2 to 5 words for a filename. "
-            "Focus on the main subject, document title, product, diagram, screenshot, or scene "
-            "(e.g., 'Eiffel_Tower_Sunset', 'Company_Revenue_Chart', 'User_Login_Screen', 'Golden_Retriever_Puppy', 'Math_Formula_Notes'). "
-            "Return ONLY the plain title text with no punctuation, no markdown, and no extra explanation."
+            "Identify precisely what is integrated inside: brand or organization name, product, document type "
+            "(e.g., invoice, agreement, passport, receipt, certificate), chart/diagram topic, user interface screen, or scene "
+            "(e.g., 'Delfa Brand Logo', 'Company Revenue Chart', 'User Login Screen', 'Golden Retriever Puppy', 'Contract Agreement Form'). "
+            "Return ONLY the plain title text with spaces between words, no punctuation, no markdown, and no extra explanation."
         )
+        active_prompt = prompt or default_prompt
 
         if model in ("gemini-1.5-flash", "gemini-2.0-flash", "gemini-1.5-pro", "gemini-2.5-flash"):
             model = DEFAULT_GEMINI_MODEL
@@ -180,7 +186,7 @@ def analyze_image_with_google(
             "contents": [
                 {
                     "parts": [
-                        {"text": prompt},
+                        {"text": active_prompt},
                         {
                             "inline_data": {
                                 "mime_type": mime_type,
@@ -478,6 +484,7 @@ def analyze_image_bytes_with_groq(
     api_key: str,
     mime_type: str = "image/jpeg",
     model: str = DEFAULT_GROQ_MODEL,
+    prompt: Optional[str] = None,
     timeout_seconds: int = 15
 ) -> Tuple[Optional[str], Optional[str]]:
     """
@@ -512,12 +519,14 @@ def analyze_image_bytes_with_groq(
             ready_mime = "image/jpeg"
 
         base64_data = base64.b64encode(ready_bytes).decode("utf-8")
-        prompt = (
+        default_prompt = (
             "Analyze this image and generate a short, descriptive, specific title in 2 to 5 words for a filename. "
-            "Focus on the main subject, document title, product, diagram, screenshot, or scene "
+            "Identify precisely what is integrated inside: brand or organization name, product, document type "
+            "(e.g., invoice, agreement, passport, receipt, certificate), chart/diagram topic, user interface screen, or scene "
             "(e.g., 'Delfa Brand Logo', 'Company Revenue Chart', 'User Login Screen', 'Contract Agreement Form'). "
-            "Return ONLY the plain title text with no punctuation, no markdown, and no extra explanation."
+            "Return ONLY the plain title text with spaces between words, no punctuation, no markdown, and no extra explanation."
         )
+        active_prompt = prompt or default_prompt
 
         url = "https://api.groq.com/openai/v1/chat/completions"
         headers = {
@@ -530,7 +539,7 @@ def analyze_image_bytes_with_groq(
                 {
                     "role": "user",
                     "content": [
-                        {"type": "text", "text": prompt},
+                        {"type": "text", "text": active_prompt},
                         {
                             "type": "image_url",
                             "image_url": {
@@ -625,4 +634,155 @@ def analyze_pdf_with_ai(
         return None, f"Could not extract PDF visual content: {str(e)}", active_provider
 
     return None, "No readable text or page images detected in PDF.", active_provider
+
+
+def extract_video_keyframe(
+    video_path: Path,
+    target_seconds: float = 1.5,
+    max_dimension: int = 1024
+) -> Tuple[Optional[bytes], Optional[str], Optional[str]]:
+    """
+    Extracts a representative keyframe from a video file (~1.5s in to avoid black intros)
+    and returns (jpeg_bytes, mime_type, error_message).
+    Supports:
+    1. imageio (with imageio-ffmpeg)
+    2. System ffmpeg (if installed)
+    3. OpenCV cv2 (if installed)
+    """
+    last_err = None
+
+    # 1. Try imageio (imageio-ffmpeg)
+    try:
+        import imageio.v3 as iio
+        from PIL import Image
+        frame = None
+        for idx in (15, 30, 5, 0):
+            try:
+                frame = iio.imread(str(video_path), index=idx)
+                if frame is not None and len(frame) > 0:
+                    break
+            except Exception:
+                continue
+
+        if frame is not None:
+            img = Image.fromarray(frame)
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+            w, h = img.size
+            if max(w, h) > max_dimension:
+                scale = max_dimension / max(w, h)
+                img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            return buf.getvalue(), "image/jpeg", None
+    except Exception as e:
+        last_err = str(e)
+
+    # 2. Try system ffmpeg in PATH
+    try:
+        import shutil
+        import subprocess
+        ffmpeg_bin = shutil.which("ffmpeg")
+        if ffmpeg_bin:
+            res = subprocess.run(
+                [
+                    ffmpeg_bin,
+                    "-ss", f"00:00:0{target_seconds:.1f}",
+                    "-i", str(video_path),
+                    "-vframes", "1",
+                    "-f", "image2pipe",
+                    "-vcodec", "mjpeg",
+                    "-"
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=10
+            )
+            if res.returncode == 0 and len(res.stdout) > 100:
+                return res.stdout, "image/jpeg", None
+    except Exception as e:
+        last_err = str(e)
+
+    # 3. Try cv2 if installed
+    try:
+        import cv2
+        cap = cv2.VideoCapture(str(video_path))
+        if cap.isOpened():
+            cap.set(cv2.CAP_PROP_POS_MSEC, int(target_seconds * 1000))
+            ret, frame = cap.read()
+            if not ret or frame is None:
+                cap.set(cv2.CAP_PROP_POS_MSEC, 0)
+                ret, frame = cap.read()
+            cap.release()
+            if ret and frame is not None:
+                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                from PIL import Image
+                img = Image.fromarray(rgb_frame)
+                w, h = img.size
+                if max(w, h) > max_dimension:
+                    scale = max_dimension / max(w, h)
+                    img = img.resize((int(w * scale), int(h * scale)), Image.Resampling.LANCZOS)
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=85)
+                return buf.getvalue(), "image/jpeg", None
+    except Exception as e:
+        last_err = str(e)
+
+    return None, None, last_err or "Video frame extractor not available or video format unsupported."
+
+
+def analyze_video_with_ai(
+    video_path: Path,
+    api_key: str,
+    provider: str = "auto",
+    model: Optional[str] = None,
+    timeout_seconds: int = 15
+) -> Tuple[Optional[str], Optional[str], str]:
+    """
+    Extracts a representative keyframe from a video and passes it to Groq or Google Gemini Vision
+    to recognize what is happening in the video (subject, action, activity, tutorial, presentation, scene).
+    Returns: (title, error_message, provider_name)
+    """
+    active_provider = detect_ai_provider(api_key, provider)
+    keyframe_bytes, mime_type, err = extract_video_keyframe(video_path)
+    if not keyframe_bytes:
+        return None, (err or "Could not extract video keyframe"), active_provider
+
+    prompt = (
+        "Analyze this video keyframe and generate a short, descriptive, specific title in 2 to 5 words for a video file. "
+        "Focus on what is happening in the video: the main subject, activity, tutorial, keynote presentation, "
+        "gameplay, review, documentary, product demo, or scene "
+        "(e.g., 'Guitar Fingerpicking Tutorial', 'Product Launch Keynote', 'Golden Retriever Beach Play', "
+        "'Financial Q3 Results Review', 'Minecraft Castle Building Demo'). "
+        "Return ONLY the plain title text with spaces between words, no punctuation, no markdown, and no extra explanation."
+    )
+
+    if active_provider == "groq":
+        mod = model if (model and "qwen" in model) else DEFAULT_GROQ_MODEL
+        title, err = analyze_image_bytes_with_groq(
+            keyframe_bytes,
+            api_key,
+            model=mod,
+            prompt=prompt,
+            timeout_seconds=timeout_seconds
+        )
+        return title, err, "Groq Cloud Vision"
+    else:
+        # Google Gemini
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tf:
+            tf.write(keyframe_bytes)
+            tf_path = Path(tf.name)
+        try:
+            mod = model if (model and "gemini" in model) else DEFAULT_GEMINI_MODEL
+            title, err = analyze_image_with_google(
+                tf_path,
+                api_key,
+                model=mod,
+                prompt=prompt,
+                timeout_seconds=timeout_seconds
+            )
+            return title, err, "Google Gemini Vision"
+        finally:
+            tf_path.unlink(missing_ok=True)
 
