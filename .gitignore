@@ -75,3 +75,6 @@ desktop.ini
 *.log
 *.sqlite
 *.db
+
+# Browser extension source (overrides the Python "lib/" rule above)
+!browser_extension/lib/

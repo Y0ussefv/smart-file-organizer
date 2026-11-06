@@ -62,6 +62,8 @@ class ScanConfig:
     google_ai_model: str = "gemini-3.8-flash"
     groq_api_key: str = ""
     groq_model: str = "qwen/qwen3.8-27b"
+    openai_api_key: str = ""
+    openai_model: str = "gpt-5-mini"
     group_by_domain: bool = True
     min_domain_files: int = 2
     rename_unlabelled_images: bool = False
@@ -86,6 +88,8 @@ class ScanConfig:
             "google_ai_model": self.google_ai_model,
             "groq_api_key": self.groq_api_key,
             "groq_model": self.groq_model,
+            "openai_api_key": self.openai_api_key,
+            "openai_model": self.openai_model,
             "group_by_domain": self.group_by_domain,
             "min_domain_files": self.min_domain_files,
             "rename_unlabelled_images": self.rename_unlabelled_images,
@@ -112,6 +116,8 @@ class ScanConfig:
             google_ai_model=data.get("google_ai_model", "gemini-3.8-flash"),
             groq_api_key=data.get("groq_api_key", ""),
             groq_model=data.get("groq_model", "qwen/qwen3.8-27b"),
+            openai_api_key=data.get("openai_api_key", ""),
+            openai_model=data.get("openai_model", "gpt-5-mini"),
             group_by_domain=data.get("group_by_domain", True),
             min_domain_files=data.get("min_domain_files", 2),
             rename_unlabelled_images=data.get("rename_unlabelled_images", False),

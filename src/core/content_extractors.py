@@ -108,7 +108,7 @@ class PDFExtractor(BaseExtractor):
                     or os.getenv("GEMINI_API_KEY", "").strip()
                 )
                 ai_enabled = getattr(config, "enable_google_ai", False) or getattr(config, "enable_ai_vision", False) or bool(api_key)
-                if ai_enabled and api_key:
+                if ai_enabled and api_key and not getattr(config, "openai_api_key", ""):  # OpenAI mode handles AI itself
                     from src.core.ai_vision import analyze_pdf_with_ai
                     provider = getattr(config, "ai_provider", "auto")
                     ai_model = getattr(config, "groq_model" if api_key.startswith("gsk_") else "google_ai_model", None)
@@ -712,7 +712,7 @@ class ImageExtractor(BaseExtractor):
                     or os.getenv("GEMINI_API_KEY", "").strip()
                 )
                 ai_enabled = getattr(config, "enable_google_ai", False) or getattr(config, "enable_ai_vision", False) or bool(api_key)
-                if ai_enabled and api_key:
+                if ai_enabled and api_key and not getattr(config, "openai_api_key", ""):  # OpenAI mode handles AI itself
                     from src.core.ai_vision import analyze_image_with_ai
                     provider = getattr(config, "ai_provider", "auto")
                     model = getattr(config, "groq_model" if api_key.startswith("gsk_") else "google_ai_model", None)
@@ -964,7 +964,7 @@ class VideoExtractor(BaseExtractor):
                 or os.getenv("GEMINI_API_KEY", "").strip()
             )
             ai_enabled = getattr(config, "enable_google_ai", False) or getattr(config, "enable_ai_vision", False) or bool(api_key)
-            if ai_enabled and api_key:
+            if ai_enabled and api_key and not getattr(config, "openai_api_key", ""):  # OpenAI mode handles AI itself
                 try:
                     from src.core.ai_vision import analyze_video_with_ai
                     provider = getattr(config, "ai_provider", "auto")
