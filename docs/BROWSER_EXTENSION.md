@@ -1,4 +1,4 @@
-# Smart Rename – Browser Extension
+# BeeOrganizer – Browser Extension
 
 A standalone Chrome / Edge / Brave extension (Manifest V3). **No Python and no desktop app needed.**
 Every download is saved with an exact, descriptive name written by OpenAI from the file's real content.
@@ -21,6 +21,12 @@ Chrome saves the file directly under the new name (adds " (1)" if the name exist
 
 If anything fails (no key, too big, page needs a one-time link, OpenAI error, more than 90 s),
 the file is simply saved with its original name and the reason appears in the popup.
+
+## Share privately (you and your team, no store)
+
+1. `python build_scripts/package_extension.py` creates `dist/BeeOrganizer.zip`.
+2. Send that zip by email or USB. It unpacks into a `BeeOrganizer` folder that contains `INSTALL.txt` (French and English steps).
+3. Each person loads the folder with **Load unpacked** (below) and pastes the OpenAI key in the popup.
 
 ## Install for yourself (developer mode)
 
@@ -50,7 +56,7 @@ the file is simply saved with its original name and the reason appears in the po
 
 ## Publish to the Chrome Web Store
 
-1. `python build_scripts/package_extension.py` → `dist/smart-rename-<version>.zip`
+1. `python build_scripts/package_extension.py --store` → `dist/BeeOrganizer-store-<version>.zip`
 2. Pay the one-time $5 fee and sign in at https://chrome.google.com/webstore/devconsole
 3. **New item** → upload the zip → fill in the description, screenshots (1280×800), icon (128×128) and promo tile (440×280).
 4. **Privacy** tab: justify each permission (`downloads`: rename files; `storage`: settings; `notifications`: show the new name; host access `<all_urls>`: read the file being downloaded and call api.openai.com). Disclose that file content is sent to OpenAI with the user's own key, and link a privacy policy.

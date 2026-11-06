@@ -1,4 +1,4 @@
-// Smart Rename – background service worker (standalone, no desktop app needed).
+// BeeOrganizer – background service worker (standalone, no desktop app needed).
 //
 // When a download STARTS, Chrome asks extensions what the file should be called
 // (downloads.onDeterminingFilename). We fetch the same file into memory, read its

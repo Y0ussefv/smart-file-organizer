@@ -1,0 +1,42 @@
+BeeOrganizer - Installation (5 minutes)
+========================================
+
+FRANÇAIS
+--------
+1. Décompressez le fichier BeeOrganizer.zip dans un dossier qui ne bougera plus
+   (par exemple  Documents\BeeOrganizer ). Ne supprimez pas ce dossier ensuite.
+2. Ouvrez Google Chrome et tapez dans la barre d'adresse :  chrome://extensions
+   (Microsoft Edge :  edge://extensions )
+3. En haut à droite, activez « Mode développeur ».
+4. Cliquez sur « Charger l'extension non empaquetée » et choisissez le dossier
+   BeeOrganizer (celui qui contient manifest.json).
+5. Cliquez sur l'icône puzzle en haut à droite de Chrome, puis sur l'épingle
+   à côté de BeeOrganizer pour l'afficher.
+6. Cliquez sur l'icône BeeOrganizer, collez la clé OpenAI (sk-...), puis « Test ».
+7. Téléchargez un fichier : il sera enregistré avec un nom précis automatiquement.
+
+Si Chrome affiche « Désactiver les extensions en mode développeur », cliquez
+sur la croix (ne cliquez pas sur Désactiver).
+
+Mise à jour : remplacez les fichiers du dossier par la nouvelle version, puis
+cliquez sur la flèche « Recharger » de BeeOrganizer dans chrome://extensions.
+
+ENGLISH
+-------
+1. Unzip BeeOrganizer.zip into a folder that will stay (e.g. Documents\BeeOrganizer).
+   Do not delete that folder afterwards.
+2. In Chrome, open  chrome://extensions   (Edge:  edge://extensions )
+3. Turn on "Developer mode" (top right).
+4. Click "Load unpacked" and select the BeeOrganizer folder (the one with manifest.json).
+5. Click the puzzle icon in Chrome's toolbar and pin BeeOrganizer.
+6. Click the BeeOrganizer icon, paste the OpenAI key (sk-...), click "Test".
+7. Download any file: it is saved with an exact name automatically.
+
+If Chrome shows "Disable developer mode extensions", close the message with the X
+(do not click Disable).
+
+Update: replace the folder's files with the new version, then click the "Reload"
+arrow on BeeOrganizer in chrome://extensions.
+
+Note: the content of each downloaded file (up to 25 MB) is sent to OpenAI to
+choose the name. Each download = one small paid OpenAI request.

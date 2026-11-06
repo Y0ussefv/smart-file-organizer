@@ -59,7 +59,7 @@ Add an OpenAI API key in **Settings → OpenAI Precise Titles** (or set `OPENAI_
 
 ---
 
-## 🌐 Browser Extension: Smart Rename (standalone)
+## 🌐 Browser Extension: BeeOrganizer (standalone)
 
 A Chrome / Edge / Brave extension in [`browser_extension/`](browser_extension/) gives every download an exact name **as it downloads**. It doesn't need Python or the desktop app. It reads the file (PDF, Word, PowerPoint, Excel, images, text, zip) and asks OpenAI with your key for a precise title, for example `download (3).pdf` ➔ `Delfa_Invoice_2026-0412_Office_Supplies.pdf`.
 

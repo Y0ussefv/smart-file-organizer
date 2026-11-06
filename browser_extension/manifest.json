@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Smart Rename – AI Download Renamer",
-  "short_name": "Smart Rename",
+  "name": "BeeOrganizer",
+  "short_name": "BeeOrganizer",
   "version": "2.0.0",
-  "description": "Reads every file you download and saves it with an exact, descriptive name written by AI from its real content.",
+  "description": "BeeOrganizer reads every file you download and saves it with an exact, descriptive name written by AI from its real content.",
   "permissions": ["downloads", "storage", "notifications"],
   "host_permissions": ["<all_urls>"],
   "background": {
@@ -11,7 +11,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Smart Rename",
+    "default_title": "BeeOrganizer",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
