@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- BeeOrganizer 2.1: reads PDFs and other files generated inside web pages (`blob:` downloads) through the page's tab, so they're renamed too instead of being skipped.
 - **BeeOrganizer browser extension v2 (Chrome / Edge / Brave)** in `browser_extension/`: standalone, with no Python needed. When a download starts, it reads the file in memory (PDF, Office, images, text, zip) and asks OpenAI for an exact title, so Chrome saves it directly under that name. Options: name style, folder per website/type, size limit, skip list. Private zip to share: `python build_scripts/package_extension.py` (dist/BeeOrganizer.zip); store zip: add `--store`.
 - (Optional, not used by extension v2) Native messaging bridge (`src/integrations/native_host.py`) and installer (`python main.py --install-browser-bridge`) for Windows, macOS and Linux.
 - `DownloadProcessor` for single-file analyze → collision-safe rename → undo history.

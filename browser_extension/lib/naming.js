@@ -70,7 +70,7 @@ export function buildFilename(title, originalName, { style = "Title_Case", maxLe
 export function siteFolder(url) {
   let host = "";
   try {
-    host = new URL(url).hostname.toLowerCase();
+    host = new URL((url || "").replace(/^blob:/i, "")).hostname.toLowerCase();
   } catch {
     return null;
   }

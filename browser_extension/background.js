@@ -8,6 +8,7 @@
 import { buildFilename, siteFolder, typeFolder, splitName } from "./lib/naming.js";
 import { fetchBytes, buildContext } from "./lib/content.js";
 import { askForTitle, testKey, DEFAULT_MODEL } from "./lib/openai.js";
+import { fetchBlobFromTabs } from "./lib/blob.js";
 
 const HISTORY_LIMIT = 50;
 const DECISION_TIMEOUT_MS = 90000;
@@ -69,15 +70,23 @@ async function decideName(item, settings) {
   if (ext && skip.includes(ext.slice(1).toLowerCase())) {
     return { entry: { ...entry, status: "SKIPPED", message: `.${ext.slice(1)} files are skipped (see settings).` } };
   }
-  if (!/^(https?|data):/i.test(url)) {
-    return { entry: { ...entry, status: "SKIPPED", message: "This download type cannot be read by the extension." } };
+  const isBlob = /^blob:/i.test(url);
+  if (!isBlob && !/^(https?|data):/i.test(url)) {
+    const scheme = (url.match(/^([a-z-]+):/i) || [])[1] || "unknown";
+    return { entry: { ...entry, status: "SKIPPED", message: `"${scheme}:" downloads cannot be read by the extension.` } };
   }
   const maxBytes = settings.maxSizeMB * 1024 * 1024;
   if (item.fileSize > maxBytes || item.totalBytes > maxBytes) {
     return { entry: { ...entry, status: "SKIPPED", message: `Larger than ${settings.maxSizeMB} MB.` } };
   }
 
-  const fetched = await fetchBytes(url, maxBytes);
+  let fetched;
+  try {
+    fetched = isBlob ? await fetchBlobFromTabs(url, maxBytes) : await fetchBytes(url, maxBytes);
+  } catch (e) {
+    if (e.tooBig) return { entry: { ...entry, status: "SKIPPED", message: e.message } };
+    throw e;
+  }
   if (fetched.truncated && !/^text\//.test(fetched.contentType)) {
     return { entry: { ...entry, status: "SKIPPED", message: `Larger than ${settings.maxSizeMB} MB.` } };
   }
