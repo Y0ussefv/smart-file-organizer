@@ -11,6 +11,7 @@ import { listZipEntries } from "../../browser_extension/lib/zip.js";
 import { buildContext } from "../../browser_extension/lib/content.js";
 import { askForTitle, cleanTitle } from "../../browser_extension/lib/openai.js";
 import { blobOrigin, dataUrlToBytes, fetchBlobFromTabs } from "../../browser_extension/lib/blob.js";
+import { fetchLocalFile } from "../../browser_extension/lib/localfile.js";
 
 const FIX = process.env.FIXTURES;
 const fixture = (n) => {
@@ -75,6 +76,28 @@ test("blob read failure gives a clear error", async () => {
     scripting: { executeScript: async () => [{ result: { error: "Failed to fetch" } }] },
   };
   await assert.rejects(fetchBlobFromTabs("blob:https://app.bee.ma/x", 1000), /Failed to fetch/);
+});
+
+test("local file:// PDF is read through the offscreen page", async () => {
+  const pdf = "data:application/pdf;base64," + Buffer.from("%PDF-1.7 local").toString("base64");
+  let msg;
+  globalThis.chrome = {
+    extension: { isAllowedFileSchemeAccess: async () => true },
+    runtime: {
+      getURL: (p) => "chrome-extension://id/" + p,
+      getContexts: async () => [],
+      sendMessage: async (m) => { msg = m; return { dataUrl: pdf, size: 14 }; },
+    },
+    offscreen: { createDocument: async () => {} },
+  };
+  const got = await fetchLocalFile("file:///C:/Users/me/Downloads/Bee.pdf", 1000);
+  assert.equal(msg.target, "bee-offscreen");
+  assert.equal(new TextDecoder().decode(got.bytes), "%PDF-1.7 local");
+});
+
+test("local file:// without permission explains how to allow it", async () => {
+  globalThis.chrome = { extension: { isAllowedFileSchemeAccess: async () => false } };
+  await assert.rejects(fetchLocalFile("file:///C:/x.pdf", 1000), /Allow access to file URLs/);
 });
 
 test("cleanTitle strips quotes and extension", () => {

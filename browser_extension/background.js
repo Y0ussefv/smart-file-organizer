@@ -9,6 +9,7 @@ import { buildFilename, siteFolder, typeFolder, splitName } from "./lib/naming.j
 import { fetchBytes, buildContext } from "./lib/content.js";
 import { askForTitle, testKey, DEFAULT_MODEL } from "./lib/openai.js";
 import { fetchBlobFromTabs } from "./lib/blob.js";
+import { fetchLocalFile } from "./lib/localfile.js";
 
 const HISTORY_LIMIT = 50;
 const DECISION_TIMEOUT_MS = 90000;
@@ -71,7 +72,8 @@ async function decideName(item, settings) {
     return { entry: { ...entry, status: "SKIPPED", message: `.${ext.slice(1)} files are skipped (see settings).` } };
   }
   const isBlob = /^blob:/i.test(url);
-  if (!isBlob && !/^(https?|data):/i.test(url)) {
+  const isLocal = /^file:/i.test(url);
+  if (!isBlob && !isLocal && !/^(https?|data):/i.test(url)) {
     const scheme = (url.match(/^([a-z-]+):/i) || [])[1] || "unknown";
     return { entry: { ...entry, status: "SKIPPED", message: `"${scheme}:" downloads cannot be read by the extension.` } };
   }
@@ -82,7 +84,11 @@ async function decideName(item, settings) {
 
   let fetched;
   try {
-    fetched = isBlob ? await fetchBlobFromTabs(url, maxBytes) : await fetchBytes(url, maxBytes);
+    fetched = isBlob
+      ? await fetchBlobFromTabs(url, maxBytes)
+      : isLocal
+        ? await fetchLocalFile(url, maxBytes)
+        : await fetchBytes(url, maxBytes);
   } catch (e) {
     if (e.tooBig) return { entry: { ...entry, status: "SKIPPED", message: e.message } };
     throw e;
