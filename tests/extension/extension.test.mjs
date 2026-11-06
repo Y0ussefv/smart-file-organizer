@@ -1,0 +1,95 @@
+// Tests for the browser extension's logic (run: node --test tests/extension/)
+// Optional: FIXTURES=<dir with download.docx, slides.pptx, sheet.xlsx, pack.zip>
+
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync, existsSync } from "node:fs";
+import path from "node:path";
+
+import { buildFilename, siteFolder, typeFolder, splitName } from "../../browser_extension/lib/naming.js";
+import { listZipEntries } from "../../browser_extension/lib/zip.js";
+import { buildContext } from "../../browser_extension/lib/content.js";
+import { askForTitle, cleanTitle } from "../../browser_extension/lib/openai.js";
+
+const FIX = process.env.FIXTURES;
+const fixture = (n) => {
+  const p = FIX && path.join(FIX, n);
+  return p && existsSync(p) ? new Uint8Array(readFileSync(p)) : null;
+};
+const fetched = (bytes, contentType = "") => ({ bytes, contentType, truncated: false });
+
+test("naming styles and safety", () => {
+  assert.equal(buildFilename("Delfa Invoice 2026-0412 Office Supplies", "download (3).PDF"),
+    "Delfa_Invoice_2026-0412_Office_Supplies.pdf");
+  assert.equal(buildFilename("facture délfa", "a.pdf", { style: "Spaces" }), "Facture Délfa.pdf");
+  assert.equal(buildFilename("Q3 Sales Report", "x.xlsx", { style: "snake_case" }), "q3_sales_report.xlsx");
+  assert.equal(buildFilename("Q3 Sales Report", "x.tar.gz", { style: "kebab-case" }), "q3-sales-report.tar.gz");
+  assert.equal(buildFilename('bad <name>: "x"/y?', "f.txt"), "Bad_Name_X_Y.txt");
+  assert.equal(buildFilename("CON", "f.txt"), "CON_file.txt");
+  const long = buildFilename("word ".repeat(40), "f.pdf", { maxLength: 40 });
+  assert.ok(long.length <= 40 && long.endsWith(".pdf"));
+  assert.deepEqual(splitName("archive.tar.gz"), ["archive", ".tar.gz"]);
+});
+
+test("folders", () => {
+  assert.equal(siteFolder("https://www.github.com/x"), "Github");
+  assert.equal(siteFolder("https://news.bbc.co.uk/x"), "Bbc");
+  assert.equal(siteFolder("http://127.0.0.1/x"), null);
+  assert.equal(typeFolder("a.PDF"), "Documents");
+  assert.equal(typeFolder("a.tar.gz"), "Archives");
+});
+
+test("cleanTitle strips quotes and extension", () => {
+  assert.equal(cleanTitle('"Delfa Invoice.pdf"'), "Delfa Invoice");
+});
+
+test("text content is read", async () => {
+  const bytes = new TextEncoder().encode("INVOICE 2026-0412\nDelfa SARL");
+  const ctx = await buildContext({ filename: "x.txt", url: "https://a.com/x.txt" }, fetched(bytes, "text/plain"));
+  assert.match(ctx.text, /INVOICE 2026-0412/);
+  assert.ok(ctx.readable);
+});
+
+test("pdf is attached as a file", async () => {
+  const bytes = new TextEncoder().encode("%PDF-1.4 fake");
+  const ctx = await buildContext({ filename: "doc.pdf", url: "https://a.com/doc.pdf" }, fetched(bytes, "application/pdf"));
+  assert.equal(ctx.files.length, 1);
+  assert.match(ctx.files[0].file_data, /^data:application\/pdf;base64,/);
+});
+
+for (const [file, expect] of [
+  ["download.docx", /Facture N° 2026-0412[\s\S]*Delfa SARL/],
+  ["slides.pptx", /Product Launch Roadmap 2027[\s\S]*Nova Phone/],
+  ["sheet.xlsx", /Q3 Sales[\s\S]*Casablanca/],
+  ["pack.zip", /my-lib\/README\.md/],
+]) {
+  test(`office/zip content: ${file}`, { skip: !fixture(file) && "no fixtures" }, async () => {
+    const bytes = fixture(file);
+    if (file.endsWith(".zip")) assert.ok(listZipEntries(bytes).length >= 2);
+    const ctx = await buildContext({ filename: file, url: "https://a.com/" + file }, fetched(bytes));
+    assert.match(ctx.text, expect);
+  });
+}
+
+test("askForTitle sends schema + content and parses answer", async () => {
+  let sent;
+  globalThis.fetch = async (url, init) => {
+    sent = JSON.parse(init.body);
+    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+      title: "Delfa Invoice 2026-0412", document_type: "Invoice", confidence: "high" }) } }] }), { status: 200 });
+  };
+  const r = await askForTitle({ apiKey: "sk-test", model: "gpt-5-mini",
+    context: { text: "hello", images: ["data:image/jpeg;base64,AAA"], files: [] } });
+  assert.equal(r.title, "Delfa Invoice 2026-0412");
+  assert.equal(sent.reasoning_effort, "low");
+  assert.equal(sent.response_format.type, "json_schema");
+  assert.equal(sent.messages[1].content[1].type, "image_url");
+});
+
+test("askForTitle reports API errors", async () => {
+  globalThis.fetch = async () => new Response(JSON.stringify({ error: { message: "Incorrect API key" } }), { status: 401 });
+  await assert.rejects(
+    askForTitle({ apiKey: "sk-bad", context: { text: "x", images: [], files: [] } }),
+    /Incorrect API key/
+  );
+});

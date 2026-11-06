@@ -134,18 +134,40 @@ class DirectoryScanner:
         )
 
         # Step 2: Analyze each file
-        for idx, file_path in enumerate(candidate_paths, 1):
-            if self._is_cancelled:
-                break
+        if (getattr(self.config, "openai_api_key", "") or "").strip() and total_files > 1:
+            # OpenAI calls are network-bound: analyze several files at once, keep original order.
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            results_by_index = {}
+            with ThreadPoolExecutor(max_workers=6) as pool:
+                futures = {pool.submit(self._analyze_file, p): i for i, p in enumerate(candidate_paths)}
+                done = 0
+                for fut in as_completed(futures):
+                    i = futures[fut]
+                    item = fut.result()
+                    results_by_index[i] = item
+                    done += 1
+                    if progress_callback:
+                        progress_callback(done, total_files, candidate_paths[i].name)
+                    if item_found_callback:
+                        item_found_callback(item)
+                    if self._is_cancelled:
+                        for f in futures:
+                            f.cancel()
+                        break
+            analyzed_items.extend(results_by_index[i] for i in sorted(results_by_index))
+        else:
+            for idx, file_path in enumerate(candidate_paths, 1):
+                if self._is_cancelled:
+                    break
 
-            if progress_callback:
-                progress_callback(idx, total_files, file_path.name)
+                if progress_callback:
+                    progress_callback(idx, total_files, file_path.name)
 
-            item = self._analyze_file(file_path)
-            analyzed_items.append(item)
+                item = self._analyze_file(file_path)
+                analyzed_items.append(item)
 
-            if item_found_callback:
-                item_found_callback(item)
+                if item_found_callback:
+                    item_found_callback(item)
 
         # Step 3: Group files with matching domains into dedicated folders
         if getattr(self.config, "group_by_domain", True):
@@ -174,6 +196,10 @@ class DirectoryScanner:
 
         summary.end_time = datetime.now()
         return analyzed_items, summary
+
+    def analyze_file(self, file_path: Path) -> FileItem:
+        """Public entry point to analyze a single file (used by the browser download bridge)."""
+        return self._analyze_file(file_path)
 
     def _analyze_file(self, file_path: Path) -> FileItem:
         """Analyzes a single file and extracts its descriptive title."""
@@ -234,6 +260,30 @@ class DirectoryScanner:
 
             if result.error:
                 item.error_message = result.error
+
+            # OpenAI precise title: every file gets an exact title from its real content
+            openai_key = (getattr(self.config, "openai_api_key", "") or "").strip()
+            if openai_key:
+                from src.core.openai_titler import generate_precise_title
+                model = getattr(self.config, "openai_model", "") or "gpt-5-mini"
+                ai_title, ai_err, details = generate_precise_title(
+                    file_path, openai_key, model=model, local_result=result
+                )
+                if ai_title:
+                    item.detected_title = ai_title
+                    doc_type = details.get("document_type") or result.file_type
+                    result.title = ai_title
+                    result.summary = f"{doc_type} | OpenAI {model} | confidence: {details.get('confidence', '?')}"
+                    item.content_summary = result.summary
+                    result.explanation = (
+                        f"OpenAI ({model}) read the file ({doc_type}) and titled it '{ai_title}' "
+                        f"[confidence: {details.get('confidence', '?')}]"
+                    )
+                else:
+                    result.explanation = (
+                        (result.explanation + " " if result.explanation else "")
+                        + f"[OpenAI unavailable: {ai_err}; used local analysis]"
+                    )
 
             # Generate proposed filename
             proposed_name, status, explanation = self.title_generator.generate_proposed_filename(

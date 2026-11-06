@@ -223,6 +223,56 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(ai_box)
 
+        # -------------------------------------------------------------
+        # OpenAI Precise Titles (every file)
+        # -------------------------------------------------------------
+        oa_box = QFrame()
+        oa_box.setStyleSheet("background-color: #24273a; border-radius: 8px; border: 1px solid #363a4f; padding: 10px;")
+        oa_layout = QVBoxLayout(oa_box)
+        oa_layout.setSpacing(8)
+
+        oa_title = QLabel("OpenAI Precise Titles — every file")
+        oa_title.setStyleSheet("font-weight: 700; color: #a6da95;")
+        oa_layout.addWidget(oa_title)
+
+        oa_notice = QLabel(
+            "When a key is set, OpenAI reads the real content of EVERY file (text, slides, sheets, pictures, "
+            "video frames, archive lists) and writes an exact title from the names, numbers and dates inside it. "
+            "This replaces Groq/Gemini. File content is sent to OpenAI; each file is one API request (paid)."
+        )
+        oa_notice.setWordWrap(True)
+        oa_notice.setStyleSheet("color: #a5adcb; font-size: 11px;")
+        oa_layout.addWidget(oa_notice)
+
+        oa_key_row = QHBoxLayout()
+        self.edit_openai_key = QLineEdit(self.settings.get("openai_api_key", ""))
+        self.edit_openai_key.setEchoMode(QLineEdit.EchoMode.Password)
+        self.edit_openai_key.setPlaceholderText("OpenAI API key (sk-...) — leave empty to turn off")
+        btn_toggle_oa = QPushButton("👁️")
+        btn_toggle_oa.setFixedWidth(36)
+        btn_toggle_oa.clicked.connect(lambda: self.edit_openai_key.setEchoMode(
+            QLineEdit.EchoMode.Normal if self.edit_openai_key.echoMode() == QLineEdit.EchoMode.Password
+            else QLineEdit.EchoMode.Password))
+        self.btn_test_openai = QPushButton("⚡ Test")
+        self.btn_test_openai.clicked.connect(self._test_openai_key)
+        oa_key_row.addWidget(self.edit_openai_key)
+        oa_key_row.addWidget(btn_toggle_oa)
+        oa_key_row.addWidget(self.btn_test_openai)
+        oa_layout.addLayout(oa_key_row)
+
+        oa_model_row = QHBoxLayout()
+        oa_model_row.addWidget(QLabel("Model:"))
+        from src.core.openai_titler import SUGGESTED_OPENAI_MODELS
+        self.cb_openai_model = QComboBox()
+        self.cb_openai_model.setEditable(True)
+        self.cb_openai_model.addItems(SUGGESTED_OPENAI_MODELS)
+        self.cb_openai_model.setCurrentText(self.settings.get("openai_model", "gpt-5-mini") or "gpt-5-mini")
+        oa_model_row.addWidget(self.cb_openai_model)
+        oa_model_row.addStretch()
+        oa_layout.addLayout(oa_model_row)
+
+        layout.addWidget(oa_box)
+
         # Export directory
         layout.addWidget(QLabel("Custom Reports Export Directory (optional):"))
         export_layout = QHBoxLayout()
@@ -299,6 +349,18 @@ class SettingsDialog(QDialog):
         else:
             QMessageBox.critical(self, "API Key Error", msg)
 
+    def _test_openai_key(self):
+        from src.core.openai_titler import verify_openai_api_key
+        self.btn_test_openai.setEnabled(False)
+        self.btn_test_openai.setText("Testing...")
+        ok, msg = verify_openai_api_key(self.edit_openai_key.text().strip(), self.cb_openai_model.currentText().strip())
+        self.btn_test_openai.setEnabled(True)
+        self.btn_test_openai.setText("⚡ Test")
+        if ok:
+            QMessageBox.information(self, "OpenAI Key Validated", msg)
+        else:
+            QMessageBox.critical(self, "OpenAI Key Error", msg)
+
     def _browse_export(self):
         folder = QFileDialog.getExistingDirectory(self, "Select Export Directory")
         if folder:
@@ -326,6 +388,8 @@ class SettingsDialog(QDialog):
         self.settings.set("group_by_domain", self.check_group_domain.isChecked())
         self.settings.set("rename_unlabelled_images", self.check_unlabelled_images.isChecked())
         self.settings.set("export_dir", self.edit_export_dir.text().strip())
+        self.settings.set("openai_api_key", self.edit_openai_key.text().strip())
+        self.settings.set("openai_model", self.cb_openai_model.currentText().strip() or "gpt-5-mini")
         self.accept()
 
 

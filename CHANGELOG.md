@@ -5,6 +5,14 @@ All notable changes to the **Smart File Organizer & Intelligent File Renamer** w
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Smart Rename browser extension v2 (Chrome / Edge / Brave)** in `browser_extension/`: standalone, with no Python needed. When a download starts, it reads the file in memory (PDF, Office, images, text, zip) and asks OpenAI for an exact title, so Chrome saves it directly under that name. Options: name style, folder per website/type, size limit, skip list. Store zip: `python build_scripts/package_extension.py`.
+- (Optional, not used by extension v2) Native messaging bridge (`src/integrations/native_host.py`) and installer (`python main.py --install-browser-bridge`) for Windows, macOS and Linux.
+- `DownloadProcessor` for single-file analyze → collision-safe rename → undo history.
+- **OpenAI Precise Titles** (`src/core/openai_titler.py`): when an OpenAI key is set (Settings or `OPENAI_API_KEY`), every file's real content (text, slides, sheets, images, video keyframes, archive listings) is sent to OpenAI, which returns an exact 3–10 word title using only names, numbers and dates found in the file. Runs 6 files in parallel; falls back to local analysis on errors.
+
 ## [1.0.0] - 2026-10-19
 
 ### Added
