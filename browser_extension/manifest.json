@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "BeeOrganizer",
   "short_name": "BeeOrganizer",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "BeeOrganizer reads every file you download and saves it with an exact, descriptive name written by AI from its real content.",
   "permissions": [
     "downloads",

@@ -3,6 +3,7 @@ const DEFAULTS = {
   model: "gpt-5-mini",
   style: "Title_Case",
   folderMode: "none",
+  datePrefixMode: "both",
   maxSizeMB: 25,
   maxLength: 80,
   notify: true,
@@ -31,6 +32,7 @@ async function load() {
   $("model").value = s.model;
   $("style").value = s.style;
   $("folderMode").value = s.folderMode;
+  $("datePrefixMode").value = s.datePrefixMode;
   $("maxSizeMB").value = s.maxSizeMB;
   $("skipExtensions").value = s.skipExtensions;
   $("notify").checked = s.notify;
@@ -44,6 +46,7 @@ function bind() {
   $("model").onchange = (e) => sync("model", e.target.value.trim() || DEFAULTS.model);
   $("style").onchange = (e) => sync("style", e.target.value);
   $("folderMode").onchange = (e) => sync("folderMode", e.target.value);
+  $("datePrefixMode").onchange = (e) => sync("datePrefixMode", e.target.value);
   $("skipExtensions").onchange = (e) => sync("skipExtensions", e.target.value);
   $("maxSizeMB").onchange = (e) => {
     const v = Math.min(100, Math.max(1, parseInt(e.target.value, 10) || DEFAULTS.maxSizeMB));

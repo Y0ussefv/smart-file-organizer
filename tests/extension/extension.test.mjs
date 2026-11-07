@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 
-import { buildFilename, siteFolder, typeFolder, splitName } from "../../browser_extension/lib/naming.js";
+import { buildFilename, siteFolder, typeFolder, splitName, datePrefix, withDatePrefix } from "../../browser_extension/lib/naming.js";
 import { listZipEntries } from "../../browser_extension/lib/zip.js";
 import { buildContext } from "../../browser_extension/lib/content.js";
 import { askForTitle, cleanTitle } from "../../browser_extension/lib/openai.js";
@@ -31,6 +31,17 @@ test("naming styles and safety", () => {
   const long = buildFilename("word ".repeat(40), "f.pdf", { maxLength: 40 });
   assert.ok(long.length <= 40 && long.endsWith(".pdf"));
   assert.deepEqual(splitName("archive.tar.gz"), ["archive", ".tar.gz"]);
+});
+
+test("YY-MM date prefix", () => {
+  assert.equal(datePrefix(new Date(2026, 10, 7)), "26-11");
+  assert.equal(datePrefix(new Date(2030, 0, 1)), "30-01");
+  assert.equal(buildFilename("Bee Diagnostic Et Cadrage", "Bee-Diagnostic-et-cadrage-v1.pdf", { prefix: "26-11" }),
+    "26-11 Bee_Diagnostic_Et_Cadrage.pdf");
+  assert.equal(withDatePrefix("Github", "26-11"), "26-11 Github");
+  assert.equal(withDatePrefix("26-11 Github", "26-11"), "26-11 Github");
+  const long = buildFilename("word ".repeat(40), "f.pdf", { maxLength: 40, prefix: "26-11" });
+  assert.ok(long.length <= 40 && long.startsWith("26-11 "), long);
 });
 
 test("folders", () => {

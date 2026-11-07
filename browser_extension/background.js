@@ -5,7 +5,7 @@
 // content, ask OpenAI for an exact title, and answer Chrome with the new name.
 // Chrome then saves the file directly under that name.
 
-import { buildFilename, siteFolder, typeFolder, splitName } from "./lib/naming.js";
+import { buildFilename, siteFolder, typeFolder, splitName, datePrefix, withDatePrefix } from "./lib/naming.js";
 import { fetchBytes, buildContext } from "./lib/content.js";
 import { askForTitle, testKey, DEFAULT_MODEL } from "./lib/openai.js";
 import { fetchBlobFromTabs } from "./lib/blob.js";
@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   model: DEFAULT_MODEL,
   style: "Title_Case",        // Title_Case | snake_case | kebab-case | Spaces
   folderMode: "none",         // none | site | type
+  datePrefixMode: "both",     // off | files | folders | both   ("26-11 Title")
   maxSizeMB: 25,
   maxLength: 80,
   notify: true,
@@ -102,12 +103,19 @@ async function decideName(item, settings) {
   );
 
   const ai = await askForTitle({ apiKey: settings.apiKey, model: settings.model, context });
-  const newName = buildFilename(ai.title, originalName, { style: settings.style, maxLength: settings.maxLength });
+  const prefix = datePrefix();
+  const mode = settings.datePrefixMode;
+  const newName = buildFilename(ai.title, originalName, {
+    style: settings.style,
+    maxLength: settings.maxLength,
+    prefix: mode === "files" || mode === "both" ? prefix : "",
+  });
   if (!newName) return { entry: { ...entry, message: "AI title was empty." } };
 
   let folder = null;
   if (settings.folderMode === "site") folder = siteFolder(item.referrer || url);
   if (settings.folderMode === "type") folder = typeFolder(newName);
+  if (folder && (mode === "folders" || mode === "both")) folder = withDatePrefix(folder, prefix);
 
   const path = folder ? `${folder}/${newName}` : newName;
   return {
