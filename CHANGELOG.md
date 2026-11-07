@@ -5,9 +5,12 @@ All notable changes to the **Smart File Organizer & Intelligent File Renamer** w
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0] - 2026-11-07
 
 ### Added
+- **Professional Windows install**: `BeeOrganizer.exe` with name, publisher (RNJ), version and icon embedded; `BeeOrganizer-Setup.exe` (Inno Setup, English and French, no admin rights) with Start menu and Desktop shortcuts, start-up entry, and an Installed apps entry with Uninstall.
+- **Release pipeline** (`.github/workflows/release.yml`): builds the Windows Setup and macOS `.dmg` (Apple Silicon + Intel) for each GitHub Release, and is ready for free SignPath code signing (`docs/SIGNING.md`).
+- **Background mode (BeeOrganizer)**: the app runs in the system tray / menu bar, starts with the computer (Windows Run key, macOS LaunchAgent, Linux autostart), watches the Downloads folder and renames every new download from any app with a `YY-MM ` prefix (`26-11 Title.pdf`). Includes pause, recent renames, undo last, and type folders. `--watch` / `--no-watch` flags.
 - BeeOrganizer 2.1: reads PDFs and other files generated inside web pages (`blob:` downloads) through the page's tab, so they're renamed too instead of being skipped.
 - **BeeOrganizer browser extension v2 (Chrome / Edge / Brave)** in `browser_extension/`: standalone, with no Python needed. When a download starts, it reads the file in memory (PDF, Office, images, text, zip) and asks OpenAI for an exact title, so Chrome saves it directly under that name. Options: name style, folder per website/type, size limit, skip list. Private zip to share: `python build_scripts/package_extension.py` (dist/BeeOrganizer.zip); store zip: add `--store`.
 - (Optional, not used by extension v2) Native messaging bridge (`src/integrations/native_host.py`) and installer (`python main.py --install-browser-bridge`) for Windows, macOS and Linux.

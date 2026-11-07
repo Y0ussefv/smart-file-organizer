@@ -53,6 +53,12 @@ It runs on **Windows, macOS, and Linux** with a graphical interface requiring ze
 
 ---
 
+## 🐝 Background mode: rename every new download (Windows & macOS)
+
+Double-click `BeeOrganizer.exe` (or the Mac app). A bee icon appears near the clock or in the menu bar. It **starts with the computer**, watches your **Downloads** folder and renames every new file from any app (browsers, WhatsApp, Teams, mail…), for example `download (3).pdf` ➔ `26-11 Bee_Diagnostic_Et_Cadrage.pdf`. It has Undo, pause, and optional type folders. See [docs/BACKGROUND_MODE.md](docs/BACKGROUND_MODE.md).
+
+---
+
 ## 🎯 OpenAI Precise Titles (every file)
 
 Add an OpenAI API key in **Settings → OpenAI Precise Titles** (or set `OPENAI_API_KEY`). Every file is then read and titled exactly from its content, for example `scan001.pdf` ➔ `Delfa_Invoice_2026-0412_Office_Supplies.pdf`. The default model is `gpt-5-mini`, and you can change it. File content is sent to OpenAI, one paid request per file. Without a key, everything stays 100% local.
@@ -125,7 +131,7 @@ Run the automated Windows build script:
 ```cmd
 build_scripts\build_windows.bat
 ```
-Output: `dist\SmartFileOrganizer.exe`
+Output: `dist\BeeOrganizer.exe`
 
 ### macOS (.app)
 Run the macOS build script:
@@ -133,7 +139,7 @@ Run the macOS build script:
 chmod +x build_scripts/build_macos.sh
 ./build_scripts/build_macos.sh
 ```
-Output: `dist/SmartFileOrganizer.app`
+Output: `dist/BeeOrganizer.app`
 
 > 📘 **Detailed macOS Guide**: See [docs/INSTALL_MAC.md](docs/INSTALL_MAC.md) for step-by-step instructions on running from source, building `.app` bundles, creating `.dmg` installers, and handling macOS Gatekeeper permissions.
 

@@ -82,7 +82,7 @@ pyinstaller --clean --noconfirm --windowed smart_file_organizer.spec
 ### 2. Install to Applications
 The build output will be located in the `dist/` directory:
 ```bash
-cp -R dist/SmartFileOrganizer.app /Applications/
+cp -R dist/BeeOrganizer.app /Applications/
 ```
 You can now find **Smart File Organizer** in your **Applications** folder and Launchpad!
 
@@ -92,24 +92,24 @@ You can now find **Smart File Organizer** in your **Applications** folder and La
 
 Because the app is built locally without an Apple Developer ID signature, macOS Gatekeeper may show a security prompt when opening it for the first time:
 
-> *"SmartFileOrganizer.app cannot be opened because the developer cannot be verified."*
+> *"BeeOrganizer.app cannot be opened because the developer cannot be verified."*
 
 ### How to allow and launch the app:
 
 #### Method A: Right-Click (Easiest)
 1. In **Finder**, open the **Applications** folder (or navigate to `dist/`).
-2. **Right-click** (or `Control + click`) on `SmartFileOrganizer.app` and select **Open**.
+2. **Right-click** (or `Control + click`) on `BeeOrganizer.app` and select **Open**.
 3. In the popup dialog, click **Open**. macOS will remember this decision permanently.
 
 #### Method B: System Settings
 1. Open **System Settings** ➔ **Privacy & Security**.
 2. Scroll down to the **Security** section.
-3. Click **Open Anyway** next to the notification for `SmartFileOrganizer.app`.
+3. Click **Open Anyway** next to the notification for `BeeOrganizer.app`.
 
 #### Method C: Terminal (Quarantine Removal)
 You can remove the Gatekeeper quarantine flag in one command:
 ```bash
-xattr -cr /Applications/SmartFileOrganizer.app
+xattr -cr /Applications/BeeOrganizer.app
 ```
 
 ---
@@ -120,7 +120,7 @@ To distribute the app to other Mac users as a standard disk image (`.dmg`), run:
 
 ```bash
 hdiutil create -volname "SmartFileOrganizer" \
-  -srcfolder dist/SmartFileOrganizer.app \
+  -srcfolder dist/BeeOrganizer.app \
   -ov -format UDZO SmartFileOrganizer.dmg
 ```
 This produces `SmartFileOrganizer.dmg`, which users can double-click to drag the app into `/Applications`.
@@ -146,5 +146,5 @@ Click **OK** / **Allow**. If you ever need to change folder permissions:
 | **Run App** | `python3 main.py` |
 | **Run Tests** | `python3 -m pytest tests/` |
 | **Build macOS App** | `./build_scripts/build_macos.sh` |
-| **Remove Quarantine** | `xattr -cr dist/SmartFileOrganizer.app` |
-| **Create .dmg** | `hdiutil create -volname "SmartFileOrganizer" -srcfolder dist/SmartFileOrganizer.app -ov -format UDZO SmartFileOrganizer.dmg` |
+| **Remove Quarantine** | `xattr -cr dist/BeeOrganizer.app` |
+| **Create .dmg** | `hdiutil create -volname "SmartFileOrganizer" -srcfolder dist/BeeOrganizer.app -ov -format UDZO SmartFileOrganizer.dmg` |

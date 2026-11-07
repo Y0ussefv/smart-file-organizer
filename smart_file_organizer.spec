@@ -61,6 +61,14 @@ a = Analysis(
         'src.app.widgets.stats_widget',
         'src.utils.platform_utils',
         'src.utils.logging_config',
+        'src.core.openai_titler',
+        'src.integrations.download_processor',
+        'src.integrations.native_host',
+        'src.integrations.install_native_host',
+        'src.watcher.download_watcher',
+        'src.watcher.autostart',
+        'src.watcher.tray_app',
+        'plistlib',
     ],
     hookspath=[],
     hooksconfig={},
@@ -86,6 +94,7 @@ pyz = PYZ(
 
 icon_ico = str(project_root / 'src' / 'app' / 'assets' / 'icon.ico')
 icon_png = str(project_root / 'src' / 'app' / 'assets' / 'icon.png')
+version_file = str(project_root / 'build_scripts' / 'windows_version_info.txt')
 selected_icon = icon_ico if (project_root / 'src' / 'app' / 'assets' / 'icon.ico').exists() else None
 
 exe = EXE(
@@ -95,7 +104,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='SmartFileOrganizer',
+    name='BeeOrganizer',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -108,22 +117,24 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=selected_icon,
+    version=version_file if sys.platform.startswith('win') else None,
 )
 
 # macOS Application Bundle (.app)
 if sys.platform == 'darwin':
     app = BUNDLE(
         exe,
-        name='SmartFileOrganizer.app',
+        name='BeeOrganizer.app',
         icon=icon_png,
         bundle_identifier='com.rnj.smartfileorganizer',
         info_plist={
-            'CFBundleName': 'Smart File Organizer',
-            'CFBundleDisplayName': 'Smart File Organizer',
+            'CFBundleName': 'BeeOrganizer',
+            'CFBundleDisplayName': 'BeeOrganizer',
             'CFBundleGetInfoString': "Intelligent Content-Aware File Organizer & Renamer",
             'CFBundleIdentifier': "com.rnj.smartfileorganizer",
-            'CFBundleVersion': "1.2.0",
-            'CFBundleShortVersionString': "1.2.0",
+            'CFBundleVersion': "1.3.0",
+            'CFBundleShortVersionString': "1.3.0",
+            'NSDownloadsFolderUsageDescription': "BeeOrganizer renames new files in your Downloads folder.",
             'NSHumanReadableCopyright': "Copyright © 2026",
             'NSHighResolutionCapable': True,
         }

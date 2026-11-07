@@ -117,7 +117,8 @@ class TitleGenerator:
                 space_replacement=self.config.space_replacement,
                 max_length=self.config.max_filename_length,
                 date_prefix=date_prefix,
-                preserve_extension=self.config.preserve_extension
+                preserve_extension=self.config.preserve_extension,
+                date_prefix_separator=getattr(self.config, "date_prefix_separator", None),
             )
 
             # Check if name is actually different
@@ -132,7 +133,9 @@ class TitleGenerator:
             # If date prefix is explicitly requested, we can still add date prefix if user wants
             if self.config.add_date_prefix and date_prefix:
                 stem, ext = split_filename_and_ext(item.original_name)
-                proposed_name = f"{date_prefix}{self.config.space_replacement}{stem}{ext}"
+                sep = getattr(self.config, "date_prefix_separator", None)
+                sep = self.config.space_replacement if sep is None else sep
+                proposed_name = f"{date_prefix}{sep}{stem}{ext}"
                 if proposed_name != item.original_name:
                     return proposed_name, FileStatus.READY_TO_RENAME, f"Added date prefix ({date_prefix}); no new content title detected."
 
