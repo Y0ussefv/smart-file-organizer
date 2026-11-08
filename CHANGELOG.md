@@ -5,6 +5,11 @@ All notable changes to the **Smart File Organizer & Intelligent File Renamer** w
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 2026-11-08
+
+### Fixed
+- Chrome / Edge showed **"Virus scan failed"** on downloads: BeeOrganizer renamed the file while Windows Defender was still scanning it. It now waits until no other program has the file open, and waits 6 s (was 3 s) after the download stops growing.
+
 ## [1.4.0] - 2026-11-08
 
 ### Added

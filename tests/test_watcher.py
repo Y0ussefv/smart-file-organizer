@@ -113,3 +113,31 @@ class TestAutostart:
         assert cmd[-1] == "--watch"
         if not getattr(sys, "frozen", False):
             assert cmd[-2].endswith("main.py")
+
+
+class TestFileInUse:
+    def test_open_file_waits_until_closed(self, tmp_path):
+        """A browser virus scan holds the file open: renaming it then makes Chrome say 'Virus scan failed'."""
+        import pytest
+        if sys.platform != "win32":
+            pytest.skip("Windows-only check")
+        from src.watcher.download_watcher import file_in_use
+
+        seen = []
+        w = DownloadWatcher(tmp_path, lambda p: seen.append(p.name) or {}, settle_seconds=3)
+        w.snapshot_existing()
+        f = tmp_path / "report.pdf"
+        f.write_bytes(b"%PDF-1.4 data")
+        handle = open(f, "rb")  # like Windows Defender scanning it
+        try:
+            assert file_in_use(f)
+            w.poll_once(now=100)
+            w.poll_once(now=110)
+            assert seen == []
+        finally:
+            handle.close()
+        assert not file_in_use(f)
+        w.poll_once(now=111)  # closed: waits a full settle period again
+        assert seen == []
+        w.poll_once(now=114)
+        assert seen == ["report.pdf"]

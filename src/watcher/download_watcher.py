@@ -28,6 +28,31 @@ IGNORED_NAMES = {"desktop.ini", "thumbs.db", ".ds_store", ".localized"}
 ALREADY_ORGANIZED = re.compile(r"^\d{2}-\d{2}[ _]")
 
 
+def file_in_use(path: Path) -> bool:
+    """
+    True while another program still has the file open (Windows only).
+
+    After Chrome/Edge finish a download they ask Windows Defender to scan it;
+    renaming the file during that scan makes the browser show "Virus scan failed".
+    Opening the file with no sharing fails while anyone else holds it open.
+    """
+    if os.name != "nt":
+        return False
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateFileW.restype = wintypes.HANDLE
+    kernel32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
+                                     wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    GENERIC_READ, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL = 0x80000000, 3, 0x80
+    handle = kernel32.CreateFileW(str(path), GENERIC_READ, 0, None, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, None)
+    if handle == wintypes.HANDLE(-1).value:
+        return ctypes.get_last_error() in (32, 33)  # sharing / lock violation
+    kernel32.CloseHandle(handle)
+    return False
+
+
 BUNDLE_DIR_SUFFIXES = (".app", ".bundle", ".framework", ".download", ".pkg", ".photoslibrary")
 
 
@@ -81,7 +106,7 @@ class DownloadWatcher(threading.Thread):
         process: Callable[[Path], Dict],
         on_event: Optional[Callable[[Dict], None]] = None,
         interval: float = 2.0,
-        settle_seconds: float = 3.0,
+        settle_seconds: float = 6.0,
         process_dir: Optional[Callable[[Path], Dict]] = None,
     ):
         super().__init__(daemon=True, name="DownloadWatcher")
@@ -165,6 +190,10 @@ class DownloadWatcher(threading.Thread):
                 settle = self.dir_settle_seconds if is_dir else self.settle_seconds
                 has_content = sig[0] > 0 if is_dir else sig > 0
                 if now - last_change >= settle and has_content and last_sig is not None:
+                    if not is_dir and file_in_use(path):
+                        # still open (browser virus scan, copy in progress...): wait longer
+                        self._pending[name] = (first, sig, now)
+                        continue
                     ready.append(name)
 
             for name in ready:
