@@ -1,3 +1,4 @@
+import pytest
 """
 Tests for specialized content extractors across supported formats.
 """
@@ -196,6 +197,8 @@ class TestExtractors:
 
     def test_pe_executable_extractor(self):
         import sys
+        if sys.platform != "win32":
+            pytest.skip("reads python.exe as a Windows executable")
         py_exe = Path(sys.executable)
         extractor = ExecutableExtractor()
         assert extractor.can_handle(".exe")
