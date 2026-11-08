@@ -16,12 +16,16 @@ on:
       tag:
         description: "Release tag to attach the files to (e.g. v1.3.0)"
         required: true
+      ref:
+        description: "Branch or commit to build (default: the tag itself)"
+        required: false
 
 permissions:
   contents: write
 
 env:
   TAG: ${{ github.event.release.tag_name || inputs.tag }}
+  BUILD_REF: ${{ inputs.ref || github.event.release.tag_name || inputs.tag }}
   QT_QPA_PLATFORM: offscreen
 
 jobs:
@@ -30,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.TAG }}
+          ref: ${{ env.BUILD_REF }}
 
       - uses: actions/setup-python@v5
         with:
@@ -118,7 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.TAG }}
+          ref: ${{ env.BUILD_REF }}
 
       - uses: actions/setup-python@v5
         with:
@@ -152,7 +156,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.TAG }}
+          ref: ${{ env.BUILD_REF }}
 
       - name: Chrome extension zip
         run: python3 build_scripts/package_extension.py
