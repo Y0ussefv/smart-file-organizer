@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Smart Rename</title>
+  <title>BeeOrganizer</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <header>
     <img src="icons/icon32.png" alt="" width="24" height="24">
     <div class="title">
-      <strong>Smart Rename</strong>
+      <strong>BeeOrganizer</strong>
       <span id="status" class="status">AI names every download</span>
     </div>
     <label class="switch" title="Auto-rename downloads">
@@ -52,6 +52,14 @@
         </select>
       </label>
     </div>
+    <label>Date prefix (year-month, e.g. 26-11)
+      <select id="datePrefixMode">
+        <option value="both">Files and folders: 26-11 Title</option>
+        <option value="files">Files only</option>
+        <option value="folders">Folders only</option>
+        <option value="off">Off</option>
+      </select>
+    </label>
     <details>
       <summary>More options</summary>
       <div class="more">

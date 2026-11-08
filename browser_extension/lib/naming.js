@@ -57,20 +57,34 @@ function truncateStem(stem, max) {
 }
 
 /** Title + original filename -> safe new filename (keeps the original extension). */
-export function buildFilename(title, originalName, { style = "Title_Case", maxLength = 80 } = {}) {
+/** "26-11" for November 2026 (last two digits of the year, then the month). */
+export function datePrefix(date = new Date()) {
+  const yy = String(date.getFullYear() % 100).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  return `${yy}-${mm}`;
+}
+
+/** Prepends "YY-MM " unless the name already starts with it. */
+export function withDatePrefix(name, prefix) {
+  if (!prefix || !name) return name;
+  return name.startsWith(prefix + " ") ? name : `${prefix} ${name}`;
+}
+
+export function buildFilename(title, originalName, { style = "Title_Case", maxLength = 80, prefix = "" } = {}) {
   const [, ext] = splitName(originalName);
   let stem = applyStyle(title, style);
   if (!stem) return null;
-  stem = truncateStem(stem, Math.max(10, maxLength - ext.length));
+  const prefixLen = prefix ? prefix.length + 1 : 0;
+  stem = truncateStem(stem, Math.max(10, maxLength - ext.length - prefixLen));
   stem = stem.replace(/[.\s]+$/, "");
   if (WINDOWS_RESERVED.has(stem.toLowerCase())) stem += "_file";
-  return stem + ext.toLowerCase();
+  return withDatePrefix(stem, prefix) + ext.toLowerCase();
 }
 
 export function siteFolder(url) {
   let host = "";
   try {
-    host = new URL(url).hostname.toLowerCase();
+    host = new URL((url || "").replace(/^blob:/i, "")).hostname.toLowerCase();
   } catch {
     return null;
   }

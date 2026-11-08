@@ -1,13 +1,15 @@
-// Smart Rename – background service worker (standalone, no desktop app needed).
+// BeeOrganizer – background service worker (standalone, no desktop app needed).
 //
 // When a download STARTS, Chrome asks extensions what the file should be called
 // (downloads.onDeterminingFilename). We fetch the same file into memory, read its
 // content, ask OpenAI for an exact title, and answer Chrome with the new name.
 // Chrome then saves the file directly under that name.
 
-import { buildFilename, siteFolder, typeFolder, splitName } from "./lib/naming.js";
+import { buildFilename, siteFolder, typeFolder, splitName, datePrefix, withDatePrefix } from "./lib/naming.js";
 import { fetchBytes, buildContext } from "./lib/content.js";
 import { askForTitle, testKey, DEFAULT_MODEL } from "./lib/openai.js";
+import { fetchBlobFromTabs } from "./lib/blob.js";
+import { fetchLocalFile } from "./lib/localfile.js";
 
 const HISTORY_LIMIT = 50;
 const DECISION_TIMEOUT_MS = 90000;
@@ -17,6 +19,7 @@ export const DEFAULT_SETTINGS = {
   model: DEFAULT_MODEL,
   style: "Title_Case",        // Title_Case | snake_case | kebab-case | Spaces
   folderMode: "none",         // none | site | type
+  datePrefixMode: "both",     // off | files | folders | both   ("26-11 Title")
   maxSizeMB: 25,
   maxLength: 80,
   notify: true,
@@ -69,15 +72,28 @@ async function decideName(item, settings) {
   if (ext && skip.includes(ext.slice(1).toLowerCase())) {
     return { entry: { ...entry, status: "SKIPPED", message: `.${ext.slice(1)} files are skipped (see settings).` } };
   }
-  if (!/^(https?|data):/i.test(url)) {
-    return { entry: { ...entry, status: "SKIPPED", message: "This download type cannot be read by the extension." } };
+  const isBlob = /^blob:/i.test(url);
+  const isLocal = /^file:/i.test(url);
+  if (!isBlob && !isLocal && !/^(https?|data):/i.test(url)) {
+    const scheme = (url.match(/^([a-z-]+):/i) || [])[1] || "unknown";
+    return { entry: { ...entry, status: "SKIPPED", message: `"${scheme}:" downloads cannot be read by the extension.` } };
   }
   const maxBytes = settings.maxSizeMB * 1024 * 1024;
   if (item.fileSize > maxBytes || item.totalBytes > maxBytes) {
     return { entry: { ...entry, status: "SKIPPED", message: `Larger than ${settings.maxSizeMB} MB.` } };
   }
 
-  const fetched = await fetchBytes(url, maxBytes);
+  let fetched;
+  try {
+    fetched = isBlob
+      ? await fetchBlobFromTabs(url, maxBytes)
+      : isLocal
+        ? await fetchLocalFile(url, maxBytes)
+        : await fetchBytes(url, maxBytes);
+  } catch (e) {
+    if (e.tooBig) return { entry: { ...entry, status: "SKIPPED", message: e.message } };
+    throw e;
+  }
   if (fetched.truncated && !/^text\//.test(fetched.contentType)) {
     return { entry: { ...entry, status: "SKIPPED", message: `Larger than ${settings.maxSizeMB} MB.` } };
   }
@@ -87,12 +103,19 @@ async function decideName(item, settings) {
   );
 
   const ai = await askForTitle({ apiKey: settings.apiKey, model: settings.model, context });
-  const newName = buildFilename(ai.title, originalName, { style: settings.style, maxLength: settings.maxLength });
+  const prefix = datePrefix();
+  const mode = settings.datePrefixMode;
+  const newName = buildFilename(ai.title, originalName, {
+    style: settings.style,
+    maxLength: settings.maxLength,
+    prefix: mode === "files" || mode === "both" ? prefix : "",
+  });
   if (!newName) return { entry: { ...entry, message: "AI title was empty." } };
 
   let folder = null;
   if (settings.folderMode === "site") folder = siteFolder(item.referrer || url);
   if (settings.folderMode === "type") folder = typeFolder(newName);
+  if (folder && (mode === "folders" || mode === "both")) folder = withDatePrefix(folder, prefix);
 
   const path = folder ? `${folder}/${newName}` : newName;
   return {

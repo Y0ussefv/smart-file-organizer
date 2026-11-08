@@ -53,6 +53,7 @@ class ScanConfig:
     max_filename_length: int = 80
     add_date_prefix: bool = False
     date_prefix_format: str = "%Y-%m-%d"
+    date_prefix_separator: Optional[str] = None  # None = use space_replacement
     preserve_extension: bool = True
     include_hidden: bool = False
     enable_ocr: bool = False

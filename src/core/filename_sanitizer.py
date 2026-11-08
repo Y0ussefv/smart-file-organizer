@@ -145,6 +145,7 @@ def build_safe_filename(
     max_length: int = 80,
     date_prefix: Optional[str] = None,
     preserve_extension: bool = True,
+    date_prefix_separator: Optional[str] = None,
 ) -> str:
     """
     Builds a fully safe, formatted filename using the candidate title and original extension.
@@ -169,7 +170,8 @@ def build_safe_filename(
     clean_stem = sanitize_stem(formatted, max_length=allowed_stem_len)
 
     if date_prefix:
-        clean_stem = f"{date_prefix}{space_replacement}{clean_stem}"
+        sep = space_replacement if date_prefix_separator is None else date_prefix_separator
+        clean_stem = f"{date_prefix}{sep}{clean_stem}"
 
     # Final sanity check for full name length
     final_name = f"{clean_stem}{ext}"

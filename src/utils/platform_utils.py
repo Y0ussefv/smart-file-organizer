@@ -83,6 +83,40 @@ def get_app_data_dir(app_name: str = "SmartFileOrganizer") -> Path:
     return data_dir
 
 
+def get_downloads_dir() -> Path:
+    """The user's real Downloads folder (honours a moved Downloads folder on Windows)."""
+    if is_windows():
+        try:
+            import ctypes
+            from ctypes import wintypes
+            import uuid as _uuid
+
+            class GUID(ctypes.Structure):
+                _fields_ = [("Data1", wintypes.DWORD), ("Data2", wintypes.WORD),
+                            ("Data3", wintypes.WORD), ("Data4", ctypes.c_ubyte * 8)]
+
+            u = _uuid.UUID("{374DE290-123F-4565-9164-39C4925E467B}")  # FOLDERID_Downloads
+            guid = GUID(u.fields[0], u.fields[1], u.fields[2],
+                        (ctypes.c_ubyte * 8)(*u.bytes[8:]))
+            out = ctypes.c_wchar_p()
+            if ctypes.windll.shell32.SHGetKnownFolderPath(ctypes.byref(guid), 0, None, ctypes.byref(out)) == 0:
+                path = Path(out.value)
+                ctypes.windll.ole32.CoTaskMemFree(out)
+                if path.is_dir():
+                    return path
+        except Exception:
+            pass
+    elif is_linux():
+        try:
+            import subprocess
+            p = subprocess.run(["xdg-user-dir", "DOWNLOAD"], capture_output=True, text=True, timeout=3)
+            if p.returncode == 0 and p.stdout.strip() and Path(p.stdout.strip()).is_dir():
+                return Path(p.stdout.strip())
+        except Exception:
+            pass
+    return Path.home() / "Downloads"
+
+
 def get_default_reports_dir() -> Path:
     """Returns the default directory where reports and history are exported."""
     reports_dir = get_app_data_dir() / "reports"

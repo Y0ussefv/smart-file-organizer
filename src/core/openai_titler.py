@@ -329,6 +329,45 @@ def generate_precise_title(
         return None, f"Could not parse OpenAI answer: {e}", {}
 
 
+def chat_json(
+    api_key: str,
+    model: str,
+    system: str,
+    user_text: str,
+    schema: Dict[str, Any],
+    timeout_seconds: int = 120,
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    """Generic structured-JSON chat call. Returns (data, error)."""
+    if not (api_key or "").strip():
+        return None, "OpenAI API key is not configured."
+    model = (model or DEFAULT_OPENAI_MODEL).strip()
+    payload: Dict[str, Any] = {
+        "model": model,
+        "messages": [{"role": "system", "content": system}, {"role": "user", "content": user_text}],
+        "response_format": {"type": "json_schema", "json_schema": schema},
+        "max_completion_tokens": 16000,
+    }
+    if _is_reasoning_model(model):
+        payload["reasoning_effort"] = "low"
+    try:
+        resp = _post(api_key, payload, timeout_seconds)
+        if resp.status_code == 400 and "reasoning_effort" in payload and "reasoning" in _error_message(resp).lower():
+            payload.pop("reasoning_effort")
+            resp = _post(api_key, payload, timeout_seconds)
+        if resp.status_code != 200:
+            return None, f"OpenAI API error ({resp.status_code}): {_error_message(resp)}"
+        msg = (resp.json().get("choices") or [{}])[0].get("message", {})
+        if msg.get("refusal"):
+            return None, f"OpenAI refused: {msg['refusal']}"
+        return json.loads(msg.get("content") or "{}"), None
+    except requests.exceptions.Timeout:
+        return None, "OpenAI request timed out."
+    except requests.exceptions.RequestException as e:
+        return None, f"Network error contacting OpenAI: {e}"
+    except (ValueError, KeyError) as e:
+        return None, f"Could not parse OpenAI answer: {e}"
+
+
 def verify_openai_api_key(api_key: str, model: str = DEFAULT_OPENAI_MODEL) -> Tuple[bool, str]:
     if not (api_key or "").strip():
         return False, "Please enter an OpenAI API key."

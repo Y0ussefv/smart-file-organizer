@@ -89,14 +89,19 @@ class UndoManager:
             # Perform safe revert
             try:
                 import shutil
+                # The original folder may have been removed when files were organized
+                orig_path.parent.mkdir(parents=True, exist_ok=True)
                 shutil.move(str(cur_path), str(orig_path))
                 reverted_count += 1
-                # Clean up empty subfolder if it was created for domain grouping
-                if cur_path.parent != orig_path.parent and cur_path.parent.exists():
-                    try:
-                        cur_path.parent.rmdir()
-                    except OSError:
-                        pass
+                # Clean up folders that became empty (domain / project / category folders)
+                if cur_path.parent != orig_path.parent:
+                    parent = cur_path.parent
+                    for _ in range(3):
+                        try:
+                            parent.rmdir()  # only succeeds when empty
+                        except OSError:
+                            break
+                        parent = parent.parent
                 results.append(UndoResultItem(
                     original_path=orig_path,
                     renamed_path=cur_path,

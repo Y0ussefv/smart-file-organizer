@@ -111,6 +111,8 @@ class DownloadProcessor:
         folder_mode: str = "none",
         dry_run: bool = False,
         add_date_prefix: Optional[bool] = None,
+        date_prefix_format: Optional[str] = None,
+        date_prefix_separator: Optional[str] = None,
     ) -> Dict[str, Any]:
         path = Path(file_path)
         base: Dict[str, Any] = {
@@ -132,6 +134,10 @@ class DownloadProcessor:
         config.group_by_domain = False  # single file: domain grouping needs a batch
         if add_date_prefix is not None:
             config.add_date_prefix = bool(add_date_prefix)
+        if date_prefix_format:
+            config.date_prefix_format = date_prefix_format
+        if date_prefix_separator is not None:
+            config.date_prefix_separator = date_prefix_separator
 
         max_bytes = int(config.max_file_size_mb or 0) * 1024 * 1024
         try:

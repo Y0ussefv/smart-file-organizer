@@ -6,10 +6,12 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 
-import { buildFilename, siteFolder, typeFolder, splitName } from "../../browser_extension/lib/naming.js";
+import { buildFilename, siteFolder, typeFolder, splitName, datePrefix, withDatePrefix } from "../../browser_extension/lib/naming.js";
 import { listZipEntries } from "../../browser_extension/lib/zip.js";
 import { buildContext } from "../../browser_extension/lib/content.js";
 import { askForTitle, cleanTitle } from "../../browser_extension/lib/openai.js";
+import { blobOrigin, dataUrlToBytes, fetchBlobFromTabs } from "../../browser_extension/lib/blob.js";
+import { fetchLocalFile } from "../../browser_extension/lib/localfile.js";
 
 const FIX = process.env.FIXTURES;
 const fixture = (n) => {
@@ -31,12 +33,82 @@ test("naming styles and safety", () => {
   assert.deepEqual(splitName("archive.tar.gz"), ["archive", ".tar.gz"]);
 });
 
+test("YY-MM date prefix", () => {
+  assert.equal(datePrefix(new Date(2026, 10, 7)), "26-11");
+  assert.equal(datePrefix(new Date(2030, 0, 1)), "30-01");
+  assert.equal(buildFilename("Bee Diagnostic Et Cadrage", "Bee-Diagnostic-et-cadrage-v1.pdf", { prefix: "26-11" }),
+    "26-11 Bee_Diagnostic_Et_Cadrage.pdf");
+  assert.equal(withDatePrefix("Github", "26-11"), "26-11 Github");
+  assert.equal(withDatePrefix("26-11 Github", "26-11"), "26-11 Github");
+  const long = buildFilename("word ".repeat(40), "f.pdf", { maxLength: 40, prefix: "26-11" });
+  assert.ok(long.length <= 40 && long.startsWith("26-11 "), long);
+});
+
 test("folders", () => {
   assert.equal(siteFolder("https://www.github.com/x"), "Github");
   assert.equal(siteFolder("https://news.bbc.co.uk/x"), "Bbc");
   assert.equal(siteFolder("http://127.0.0.1/x"), null);
   assert.equal(typeFolder("a.PDF"), "Documents");
   assert.equal(typeFolder("a.tar.gz"), "Archives");
+});
+
+test("blob helpers", () => {
+  assert.equal(blobOrigin("blob:https://www.canva.com/1234-abcd"), "https://www.canva.com");
+  assert.equal(blobOrigin("blob:null/1234"), null);
+  assert.equal(siteFolder("blob:https://www.canva.com/1234-abcd"), "Canva");
+  const bytes = dataUrlToBytes("data:application/pdf;base64," + Buffer.from("%PDF-1.7 hi").toString("base64"));
+  assert.equal(new TextDecoder().decode(bytes), "%PDF-1.7 hi");
+});
+
+test("blob PDF from a page is read through the tab", async () => {
+  const pdf = "data:application/pdf;base64," + Buffer.from("%PDF-1.7 Bee Diagnostic").toString("base64");
+  let injected;
+  globalThis.chrome = {
+    tabs: { query: async () => [
+      { id: 1, url: "https://other.com/", active: false },
+      { id: 7, url: "https://app.bee.ma/projects/42", active: true },
+    ] },
+    scripting: { executeScript: async (opts) => {
+      injected = opts;
+      return [{ frameId: 0, result: { dataUrl: pdf, size: 23, type: "application/pdf" } }];
+    } },
+  };
+  const got = await fetchBlobFromTabs("blob:https://app.bee.ma/uuid-1", 25 * 1048576);
+  assert.equal(injected.target.tabId, 7);
+  assert.equal(injected.world, "MAIN");
+  assert.equal(got.contentType, "application/pdf");
+  const ctx = await buildContext({ filename: "Bee-Diagnostic-et-cadrage-v1.pdf", url: "blob:https://app.bee.ma/uuid-1" }, got);
+  assert.equal(ctx.files.length, 1);
+});
+
+test("blob read failure gives a clear error", async () => {
+  globalThis.chrome = {
+    tabs: { query: async () => [{ id: 3, url: "https://app.bee.ma/", active: true }] },
+    scripting: { executeScript: async () => [{ result: { error: "Failed to fetch" } }] },
+  };
+  await assert.rejects(fetchBlobFromTabs("blob:https://app.bee.ma/x", 1000), /Failed to fetch/);
+});
+
+test("local file:// PDF is read through the offscreen page", async () => {
+  const pdf = "data:application/pdf;base64," + Buffer.from("%PDF-1.7 local").toString("base64");
+  let msg;
+  globalThis.chrome = {
+    extension: { isAllowedFileSchemeAccess: async () => true },
+    runtime: {
+      getURL: (p) => "chrome-extension://id/" + p,
+      getContexts: async () => [],
+      sendMessage: async (m) => { msg = m; return { dataUrl: pdf, size: 14 }; },
+    },
+    offscreen: { createDocument: async () => {} },
+  };
+  const got = await fetchLocalFile("file:///C:/Users/me/Downloads/Bee.pdf", 1000);
+  assert.equal(msg.target, "bee-offscreen");
+  assert.equal(new TextDecoder().decode(got.bytes), "%PDF-1.7 local");
+});
+
+test("local file:// without permission explains how to allow it", async () => {
+  globalThis.chrome = { extension: { isAllowedFileSchemeAccess: async () => false } };
+  await assert.rejects(fetchLocalFile("file:///C:/x.pdf", 1000), /Allow access to file URLs/);
 });
 
 test("cleanTitle strips quotes and extension", () => {

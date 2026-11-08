@@ -5,10 +5,27 @@ All notable changes to the **Smart File Organizer & Intelligent File Renamer** w
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.1] - 2026-11-08
+
+### Fixed
+- Chrome / Edge showed **"Virus scan failed"** on downloads: BeeOrganizer renamed the file while Windows Defender was still scanning it. It now waits until no other program has the file open, and waits 6 s (was 3 s) after the download stops growing.
+
+## [1.4.0] - 2026-11-08
 
 ### Added
-- **Smart Rename browser extension v2 (Chrome / Edge / Brave)** in `browser_extension/`: standalone, with no Python needed. When a download starts, it reads the file in memory (PDF, Office, images, text, zip) and asks OpenAI for an exact title, so Chrome saves it directly under that name. Options: name style, folder per website/type, size limit, skip list. Store zip: `python build_scripts/package_extension.py`.
+- **Smart project folders** (`src/organizer/smart_organizer.py`): new folders in Downloads are unwrapped (`folderX/folderY/FILES` → `folderX/FILES`) and arranged like a human would. Project folder from the content, subfolders only when useful (`Project Delfa/Contact`, `Project Delfa/Assets`), exact file names, and merging into an existing project. Software projects are only unwrapped.
+- New single files are filed into the matching existing project folder.
+- **Organize Downloads now…** tray action: previews the plan, applies on confirmation, and can be undone as one step.
+- Undo recreates folders removed during organizing and cleans up emptied ones.
+
+## [1.3.0] - 2026-11-07
+
+### Added
+- **Professional Windows install**: `BeeOrganizer.exe` with name, publisher (RNJ), version and icon embedded; `BeeOrganizer-Setup.exe` (Inno Setup, English and French, no admin rights) with Start menu and Desktop shortcuts, start-up entry, and an Installed apps entry with Uninstall.
+- **Release pipeline** (`.github/workflows/release.yml`): builds the Windows Setup and macOS `.dmg` (Apple Silicon + Intel) for each GitHub Release, and is ready for free SignPath code signing (`docs/SIGNING.md`).
+- **Background mode (BeeOrganizer)**: the app runs in the system tray / menu bar, starts with the computer (Windows Run key, macOS LaunchAgent, Linux autostart), watches the Downloads folder and renames every new download from any app with a `YY-MM ` prefix (`26-11 Title.pdf`). Includes pause, recent renames, undo last, and type folders. `--watch` / `--no-watch` flags.
+- BeeOrganizer 2.1: reads PDFs and other files generated inside web pages (`blob:` downloads) through the page's tab, so they're renamed too instead of being skipped.
+- **BeeOrganizer browser extension v2 (Chrome / Edge / Brave)** in `browser_extension/`: standalone, with no Python needed. When a download starts, it reads the file in memory (PDF, Office, images, text, zip) and asks OpenAI for an exact title, so Chrome saves it directly under that name. Options: name style, folder per website/type, size limit, skip list. Private zip to share: `python build_scripts/package_extension.py` (dist/BeeOrganizer.zip); store zip: add `--store`.
 - (Optional, not used by extension v2) Native messaging bridge (`src/integrations/native_host.py`) and installer (`python main.py --install-browser-bridge`) for Windows, macOS and Linux.
 - `DownloadProcessor` for single-file analyze → collision-safe rename → undo history.
 - **OpenAI Precise Titles** (`src/core/openai_titler.py`): when an OpenAI key is set (Settings or `OPENAI_API_KEY`), every file's real content (text, slides, sheets, images, video keyframes, archive listings) is sent to OpenAI, which returns an exact 3–10 word title using only names, numbers and dates found in the file. Runs 6 files in parallel; falls back to local analysis on errors.
