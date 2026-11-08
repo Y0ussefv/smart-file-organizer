@@ -8,6 +8,7 @@ downloading (size stable, not locked), using the same engine as the desktop app.
 """
 
 import logging
+import os
 import re
 import threading
 import time
@@ -27,6 +28,33 @@ IGNORED_NAMES = {"desktop.ini", "thumbs.db", ".ds_store", ".localized"}
 ALREADY_ORGANIZED = re.compile(r"^\d{2}-\d{2}[ _]")
 
 
+BUNDLE_DIR_SUFFIXES = (".app", ".bundle", ".framework", ".download", ".pkg", ".photoslibrary")
+
+
+def is_folder_candidate(path: Path) -> bool:
+    name = path.name
+    if name.startswith((".", "~")) or name.lower() in IGNORED_NAMES or name.lower() == "__macosx":
+        return False
+    if name.lower().endswith(BUNDLE_DIR_SUFFIXES):
+        return False
+    return not ALREADY_ORGANIZED.match(name)
+
+
+def folder_signature(path: Path, limit: int = 20000) -> tuple:
+    """(file count, total size) - stops changing when a copy / unzip has finished."""
+    count = total = 0
+    for dirpath, _dirs, files in os.walk(path):
+        for f in files:
+            try:
+                total += os.path.getsize(os.path.join(dirpath, f))
+            except OSError:
+                pass
+            count += 1
+            if count >= limit:
+                return (count, total)
+    return (count, total)
+
+
 def is_candidate(path: Path) -> bool:
     name = path.name
     lower = name.lower()
@@ -41,9 +69,10 @@ def is_candidate(path: Path) -> bool:
 
 class DownloadWatcher(threading.Thread):
     """
-    on_event(dict) is called for every processed file with the processor's result
-    (status RENAMED / UNCHANGED / SKIPPED / ERROR, original_name, new_name, session_id...).
-    process(path) does the real work and returns that dict.
+    on_event(dict) is called for every processed file / folder with the result
+    (status RENAMED / ORGANIZED / UNCHANGED / SKIPPED / ERROR, original_name, new_name, session_id...).
+    process(path) handles a new file; process_dir(path) a new folder (optional).
+    Results may list "folders" they created so they are not treated as new downloads.
     """
 
     def __init__(
@@ -53,6 +82,7 @@ class DownloadWatcher(threading.Thread):
         on_event: Optional[Callable[[Dict], None]] = None,
         interval: float = 2.0,
         settle_seconds: float = 3.0,
+        process_dir: Optional[Callable[[Path], Dict]] = None,
     ):
         super().__init__(daemon=True, name="DownloadWatcher")
         self.folder = Path(folder)
@@ -60,12 +90,14 @@ class DownloadWatcher(threading.Thread):
         self.on_event = on_event or (lambda e: None)
         self.interval = interval
         self.settle_seconds = settle_seconds
+        self.dir_settle_seconds = settle_seconds * 2
+        self.process_dir = process_dir
 
         self._stop = threading.Event()
         self._paused = threading.Event()
         self._lock = threading.Lock()
         self._known: Set[str] = set()          # names already seen (never process again)
-        self._pending: Dict[str, tuple] = {}   # name -> (first_seen, last_size, last_change)
+        self._pending: Dict[str, tuple] = {}   # name -> (first_seen, last_signature, last_change)
 
     # ---- control ---------------------------------------------------------
     def stop(self) -> None:
@@ -90,7 +122,7 @@ class DownloadWatcher(threading.Thread):
         try:
             for entry in self.folder.iterdir():
                 try:
-                    if entry.is_file():
+                    if entry.is_file() or entry.is_dir():
                         out[entry.name] = entry
                 except OSError:
                     continue
@@ -117,18 +149,22 @@ class DownloadWatcher(threading.Thread):
             for name, path in files.items():
                 if name in self._known:
                     continue
-                if not is_candidate(path):
+                is_dir = path.is_dir()
+                ok = (is_folder_candidate(path) and self.process_dir is not None) if is_dir else is_candidate(path)
+                if not ok:
                     self._known.add(name)
                     continue
                 try:
-                    size = path.stat().st_size
+                    sig = folder_signature(path) if is_dir else path.stat().st_size
                 except OSError:
                     continue
-                first, last_size, last_change = self._pending.get(name, (now, -1, now))
-                if size != last_size:
+                first, last_sig, last_change = self._pending.get(name, (now, None, now))
+                if sig != last_sig:
                     last_change = now
-                self._pending[name] = (first, size, last_change)
-                if now - last_change >= self.settle_seconds and size > 0:
+                self._pending[name] = (first, sig, last_change)
+                settle = self.dir_settle_seconds if is_dir else self.settle_seconds
+                has_content = sig[0] > 0 if is_dir else sig > 0
+                if now - last_change >= settle and has_content and last_sig is not None:
                     ready.append(name)
 
             for name in ready:
@@ -144,16 +180,15 @@ class DownloadWatcher(threading.Thread):
 
     def _handle(self, path: Path) -> None:
         try:
-            result = self.process(path)
+            result = (self.process_dir(path) if path.is_dir() else self.process(path)) or {}
         except Exception as e:  # never let one file kill the watcher
             logger.exception("Watcher failed on %s", path)
             result = {"status": "ERROR", "original_name": path.name, "new_name": path.name, "message": str(e)}
-        new_path = result.get("new_path")
-        if new_path:
-            p = Path(new_path)
-            if p.parent == self.folder:
-                with self._lock:
-                    self._known.add(p.name)  # don't process our own output
+        produced = [result.get("new_path")] + list(result.get("folders") or [])
+        with self._lock:
+            for item in produced:
+                if item and Path(item).parent == self.folder:
+                    self._known.add(Path(item).name)  # don't process our own output
         self.on_event(result)
 
     def run(self) -> None:

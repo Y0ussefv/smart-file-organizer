@@ -5,6 +5,14 @@ All notable changes to the **Smart File Organizer & Intelligent File Renamer** w
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-11-08
+
+### Added
+- **Smart project folders** (`src/organizer/smart_organizer.py`): new folders in Downloads are unwrapped (`folderX/folderY/FILES` → `folderX/FILES`) and arranged like a human would. Project folder from the content, subfolders only when useful (`Project Delfa/Contact`, `Project Delfa/Assets`), exact file names, and merging into an existing project. Software projects are only unwrapped.
+- New single files are filed into the matching existing project folder.
+- **Organize Downloads now…** tray action: previews the plan, applies on confirmation, and can be undone as one step.
+- Undo recreates folders removed during organizing and cleans up emptied ones.
+
 ## [1.3.0] - 2026-11-07
 
 ### Added

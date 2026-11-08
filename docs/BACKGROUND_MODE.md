@@ -40,13 +40,37 @@ Download `BeeOrganizer-mac-AppleSilicon.dmg` (M1/M2/M3/M4 Macs) or `BeeOrganizer
 4. Answer **Yes** to "Start automatically…". This creates `~/Library/LaunchAgents/com.rnj.beeorganizer.plist`.
 5. Add the OpenAI key in Settings, as on Windows.
 
+## Smart project folders (like a human organizer)
+
+On by default (menu: **Smart project folders**). It needs an OpenAI key for the "thinking" part.
+
+**A folder arrives in Downloads** (an unzipped archive, a copied folder…). BeeOrganizer waits until it stops changing, then:
+1. **Removes useless nesting**: `folderX/folderY/FILES` → `folderX/FILES`.
+2. **Leaves software projects alone**: if the folder contains `.git`, `package.json`, `pyproject.toml`, `.sln`…, it's only unwrapped and never rearranged.
+3. **Builds a project folder** from the files' real content, with subfolders **only when useful** (more than 5 files and at least 2 per category):
+   ```
+   26-11 Project Delfa/
+   ├── Contact/   26-11 Delfa_Contact_Ahmed.vcf, …
+   ├── Assets/    26-11 Delfa_Logo.png, …
+   └── 26-11 Contrat_Delfa_2026.pdf
+   ```
+4. **Merges into an existing project** when the content belongs there (new Delfa files go into your existing `Project Delfa`).
+
+**A single file arrives**: it's renamed, then filed into the matching existing project folder (e.g. `Project Delfa/Assets`) only when it clearly belongs there. Otherwise it stays in Downloads.
+
+**Organize Downloads now…** (menu): plans a clean-up of the whole Downloads folder. It unwraps nested folders and groups loose files into projects (a new folder only when at least 2 files share a project). It first **shows the plan** (Show Details lists every move) and does nothing until you click **Yes**.
+
+Everything can be undone with **Undo last rename**. Nothing is ever overwritten. Only empty folders and system junk (`.DS_Store`, `Thumbs.db`, `__MACOSX`) are deleted.
+
 ## Tray / menu-bar menu
 
 | Item | What it does |
 |---|---|
 | Pause renaming | Stops renaming until you untick it |
 | Recent renames | Last 10 renames. Click one to show it in Explorer / Finder |
-| Undo last rename | Puts the last file back under its original name |
+| Undo last rename | Puts back the last file or folder exactly as it was |
+| Organize Downloads now… | Previews, then applies a clean-up of the whole Downloads folder |
+| Smart project folders | Project folders and subfolders chosen from the content (on by default) |
 | Open Downloads folder | |
 | Add date prefix (26-11 …) | On by default |
 | Sort into type folders | `Documents/`, `Images/`, `Archives/`… inside Downloads |
