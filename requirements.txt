@@ -10,6 +10,9 @@ pillow>=10.0.0
 imageio>=2.30.0
 imageio-ffmpeg>=0.4.8
 
+# OpenAI / AI vision HTTP calls
+requests>=2.31.0
+
 # Packaging & Distribution
 pyinstaller>=6.0.0
 
