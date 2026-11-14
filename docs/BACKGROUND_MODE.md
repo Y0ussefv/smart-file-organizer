@@ -6,13 +6,13 @@ It watches your **Downloads** folder and renames every new file as soon as it ha
 downloading, whichever app downloaded it (Chrome, Edge, Firefox, Safari, WhatsApp, Teams, Outlook…).
 
 ```
-New file appears in Downloads  →  wait until it stops growing  →  read content (+ OpenAI if a key is set)
+New file appears in Downloads  →  wait until it stops growing  →  read content (on this computer)
                                →  "26-11 Bee_Diagnostic_Et_Cadrage.pdf"  →  notification (+ Undo in the menu)
 ```
 
 - Files already in Downloads when the app starts are **never** touched.
 - Unfinished downloads (`.crdownload`, `.part`, `.tmp`…) are ignored until they're complete.
-- Files that already start with `YY-MM ` (for example renamed by the BeeOrganizer Chrome extension) are skipped, so nothing is renamed twice.
+- Files that already start with `YY-MM ` are skipped, so nothing is renamed twice.
 - Nothing is ever overwritten: if the name exists, `_2` is added. Every rename can be undone.
 
 ## Windows
@@ -23,8 +23,6 @@ https://github.com/Y0ussefv/smart-file-organizer/releases/latest and run it. No 
 - adds Start menu and Desktop shortcuts;
 - starts BeeOrganizer with Windows (it shows in **Task Manager → Startup apps** as *BeeOrganizer · RNJ*);
 - lists it in **Settings → Apps → Installed apps**, with **Uninstall**.
-
-Then: right-click the bee icon → **Open BeeOrganizer** → **Settings → OpenAI Precise Titles** → paste the key → **Save**.
 
 If Windows says "Windows protected your PC" (the app isn't code-signed yet, see [SIGNING.md](SIGNING.md)): **More info → Run anyway**.
 
@@ -38,29 +36,32 @@ Download `BeeOrganizer-mac-AppleSilicon.dmg` (M1/M2/M3/M4 Macs) or `BeeOrganizer
 2. First launch: **right-click → Open → Open** (the app isn't signed by Apple).
 3. Allow access to the **Downloads** folder when macOS asks.
 4. Answer **Yes** to "Start automatically…". This creates `~/Library/LaunchAgents/com.rnj.beeorganizer.plist`.
-5. Add the OpenAI key in Settings, as on Windows.
 
-## Smart project folders (like a human organizer)
+## How a download is handled (2.0)
 
-On by default (menu: **Smart project folders**). It needs an OpenAI key for the "thinking" part.
+1. **Local check.** BeeOrganizer reads the file on the computer and classifies it: **P0** public, **P1**
+   confidential / personal, **P2** very sensitive, **INCONNU** unreadable. See [PRIVACY.md](PRIVACY.md).
+2. **Exact name** `YY-MM Title.ext`, from the content. Nothing invented: without a reliable title the
+   original name is kept. Never overwrites (`_2`, `_3`…).
+3. **Filing, only into approved projects** (🐝 → **Projects…**), compared with **all** of them, never "the
+   last folder":
+   * strong and specific evidence (the project name **and** one of its references, no contradiction, clear
+     lead over any other project) → moved to `Downloads/Projets/<Project>/` (or an approved category);
+   * possible match → stays in Downloads, with a **proposal** (🐝 → **Proposals…**);
+   * no match → stays in Downloads, renamed.
+4. **New project?** When 3 different files clearly name the same unknown project (e.g. "Projet Delfa"),
+   BeeOrganizer **proposes** it, with the list of files and the target folder. Nothing is created before
+   you accept. Refused proposals leave everything as it is.
+5. **Undo** puts back the name **and** the place, and removes folders the app created if they are empty.
 
-**A folder arrives in Downloads** (an unzipped archive, a copied folder…). BeeOrganizer waits until it stops changing, then:
-1. **Removes useless nesting**: `folderX/folderY/FILES` → `folderX/FILES`.
-2. **Leaves software projects alone**: if the folder contains `.git`, `package.json`, `pyproject.toml`, `.sln`…, it's only unwrapped and never rearranged.
-3. **Builds a project folder** from the files' real content, with subfolders **only when useful** (more than 5 files and at least 2 per category):
-   ```
-   26-11 Project Delfa/
-   ├── Contact/   26-11 Delfa_Contact_Ahmed.vcf, …
-   ├── Assets/    26-11 Delfa_Logo.png, …
-   └── 26-11 Contrat_Delfa_2026.pdf
-   ```
-4. **Merges into an existing project** when the content belongs there (new Delfa files go into your existing `Project Delfa`).
+Folders you receive (unzipped archives, copied folders, software projects) are **left as they are**.
+At most two levels are ever created: `Projets/<Project>/<Category>/file`.
 
-**A single file arrives**: it's renamed, then filed into the matching existing project folder (e.g. `Project Delfa/Assets`) only when it clearly belongs there. Otherwise it stays in Downloads.
+## Cloud analysis (optional, off by default)
 
-**Organize Downloads now…** (menu): plans a clean-up of the whole Downloads folder. It unwraps nested folders and groups loose files into projects (a new folder only when at least 2 files share a project). It first **shows the plan** (Show Details lists every move) and does nothing until you click **Yes**.
-
-Everything can be undone with **Undo last rename**. Nothing is ever overwritten. Only empty folders and system junk (`.DS_Store`, `Thumbs.db`, `__MACOSX`) are deleted.
+🐝 → **Privacy and cloud analysis…** explains what may be sent and lets you turn it on. Only a short,
+redacted excerpt of **P0 (public)** documents can be sent to OpenAI to get a more precise name. P1, P2 and
+INCONNU documents, and every file of a project marked **always local**, never leave the computer.
 
 ## Tray / menu-bar menu
 
@@ -68,14 +69,14 @@ Everything can be undone with **Undo last rename**. Nothing is ever overwritten.
 |---|---|
 | Pause renaming | Stops renaming until you untick it |
 | Recent renames | Last 10 renames. Click one to show it in Explorer / Finder |
-| Undo last rename | Puts back the last file or folder exactly as it was |
-| Organize Downloads now… | Previews, then applies a clean-up of the whole Downloads folder |
-| Smart project folders | Project folders and subfolders chosen from the content (on by default) |
+| Undo last rename | Puts back the last file exactly as it was (name and place) |
+| Proposals… | Suggested filings and new projects: Accept, Choose another project, Leave in Downloads |
+| Projects… | Approved projects: name, aliases, references, exclusions, always local, categories |
+| Privacy and cloud analysis… | Cloud switch (off by default), OpenAI key (system vault), purge history |
 | Open Downloads folder | |
 | Add date prefix (26-11 …) | On by default |
-| Sort into type folders | `Documents/`, `Images/`, `Archives/`… inside Downloads |
 | Start when the computer starts | Turns automatic start on or off |
-| Open BeeOrganizer | Main window (settings, OpenAI key, manual folder scan) |
+| Open BeeOrganizer | Main window (settings, manual folder scan with preview) |
 | Quit BeeOrganizer | Stops watching until the next start-up (or a double-click on the app) |
 
 ## Command line

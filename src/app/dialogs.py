@@ -273,6 +273,22 @@ class SettingsDialog(QDialog):
 
         layout.addWidget(oa_box)
 
+        # Local-only build (spec V2 PR-01/PR-02): cloud analysis is off and cannot be turned on yet.
+        from src.privacy.cloud_gate import cloud_allowed
+        self._cloud_editable = cloud_allowed()
+        if not self._cloud_editable:
+            for box in (ai_box, oa_box):
+                box.setEnabled(False)
+            local_note = QLabel(
+                "🔒 Local-only mode: BeeOrganizer reads and names your files on this computer. "
+                "No file, text, image or name is sent to OpenAI or any other AI service. "
+                "Cloud analysis will come back in a later version, switched off by default, "
+                "with a local check that blocks confidential documents first."
+            )
+            local_note.setWordWrap(True)
+            local_note.setStyleSheet("color: #a6da95; font-size: 11px; font-weight: 600;")
+            layout.insertWidget(layout.indexOf(ai_box), local_note)
+
         # Export directory
         layout.addWidget(QLabel("Custom Reports Export Directory (optional):"))
         export_layout = QHBoxLayout()
@@ -374,6 +390,13 @@ class SettingsDialog(QDialog):
         self.settings.set("preserve_extension", self.check_preserve_ext.isChecked())
         self.settings.set("recursive", self.check_recursive.isChecked())
         self.settings.set("max_file_size_mb", self.spin_max_size.value())
+        self.settings.set("group_by_domain", self.check_group_domain.isChecked())
+        self.settings.set("rename_unlabelled_images", self.check_unlabelled_images.isChecked())
+        self.settings.set("export_dir", self.edit_export_dir.text().strip())
+        if not self._cloud_editable:
+            self.accept()
+            return
+
         prov = self.cb_ai_provider.currentData()
         key_val = self.edit_api_key.text().strip()
         model_val = self.cb_ai_model.currentText().split(" ")[0]
@@ -385,10 +408,9 @@ class SettingsDialog(QDialog):
             self.settings.set("groq_api_key", key_val)
             self.settings.set("groq_model", model_val or "qwen/qwen3.8-27b")
         self.settings.set("google_ai_model", model_val)
-        self.settings.set("group_by_domain", self.check_group_domain.isChecked())
-        self.settings.set("rename_unlabelled_images", self.check_unlabelled_images.isChecked())
-        self.settings.set("export_dir", self.edit_export_dir.text().strip())
-        self.settings.set("openai_api_key", self.edit_openai_key.text().strip())
+        if not self.settings.set("openai_api_key", self.edit_openai_key.text().strip()):
+            QMessageBox.warning(self, "API key not saved",
+                                "The key could not be stored in the system's secure vault, so it was not saved.")
         self.settings.set("openai_model", self.cb_openai_model.currentText().strip() or "gpt-5-mini")
         self.accept()
 

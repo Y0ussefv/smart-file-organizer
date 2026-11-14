@@ -54,6 +54,11 @@ def format_by_convention(
     return space_replacement.join([w.capitalize() for w in words])
 
 
+def strip_invisible(text: str) -> str:
+    """Removes invisible Unicode format characters (category Cf: BOM, zero-width spaces, direction marks)."""
+    return "".join(c for c in text if unicodedata.category(c) != "Cf")
+
+
 def extract_words_from_text(text: str) -> list[str]:
     """
     Extracts meaningful words from a raw title or string,
@@ -62,8 +67,9 @@ def extract_words_from_text(text: str) -> list[str]:
     if not text:
         return []
 
-    # Normalize Unicode to NFC
-    text = unicodedata.normalize("NFC", text)
+    # Normalize Unicode to NFC and drop invisible format characters
+    # (UTF-8 BOM at the start of text files, zero-width spaces, direction marks)
+    text = strip_invisible(unicodedata.normalize("NFC", text))
 
     # Insert spaces between camelCase boundaries: e.g., "DeploymentGuide" -> "Deployment Guide"
     text = re.sub(r'([a-z0-9])([A-Z])', r'\1 \2', text)
@@ -93,8 +99,8 @@ def sanitize_stem(
     if not raw_stem:
         return "Untitled"
 
-    # Unicode NFC normalization
-    stem = unicodedata.normalize("NFC", raw_stem)
+    # Unicode NFC normalization, without invisible format characters (BOM, zero-width...)
+    stem = strip_invisible(unicodedata.normalize("NFC", raw_stem))
 
     # Remove non-printable / control characters (ASCII 0-31 and 127) and Unicode replacement character 
     stem = "".join(c for c in stem if ord(c) >= 32 and ord(c) != 127 and c != '\ufffd')

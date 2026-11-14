@@ -2,6 +2,7 @@
 Tests for OpenAI precise titling (network mocked).
 """
 
+import pytest
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -11,6 +12,8 @@ from PIL import Image
 from src.core import openai_titler
 from src.core.models import FileStatus, ScanConfig
 from src.core.scanner import DirectoryScanner
+
+pytestmark = pytest.mark.usefixtures("cloud_on")  # cloud paths, HTTP mocked; blocked by default
 
 
 class FakeResp:

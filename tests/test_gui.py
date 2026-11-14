@@ -21,6 +21,16 @@ def qapp():
     if app is None:
         app = QApplication(sys.argv)
     yield app
+    # Destroy every window while Qt is still alive; otherwise Python frees them
+    # after QApplication at interpreter exit and the process segfaults (exit 139),
+    # which fails CI even though every test passed.
+    import gc
+    for widget in app.topLevelWidgets():
+        widget.close()
+        widget.deleteLater()
+    app.processEvents()
+    gc.collect()
+    app.processEvents()
 
 
 class TestGUI:

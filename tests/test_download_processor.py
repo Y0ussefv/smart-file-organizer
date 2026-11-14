@@ -1,11 +1,7 @@
 """
-Tests for the browser download bridge: DownloadProcessor + native messaging protocol.
+Tests for DownloadProcessor (single download: analyze, rename without overwrite, undo).
 """
 
-import json
-import struct
-import subprocess
-import sys
 from pathlib import Path
 
 from src.integrations.download_processor import (
@@ -16,13 +12,11 @@ from src.integrations.download_processor import (
 from src.storage.history import HistoryManager
 from src.storage.settings import SettingsManager
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
 
 def _processor(tmp_path) -> DownloadProcessor:
     settings = SettingsManager(tmp_path / "settings.json")
     # Keep tests offline / deterministic
-    settings._settings.update({"groq_api_key": "", "google_api_key": "", "enable_google_ai": False})
+    settings._settings.update({"enable_google_ai": False})
     return DownloadProcessor(settings=settings, history=HistoryManager(tmp_path / "history.sqlite3"))
 
 
@@ -85,25 +79,3 @@ class TestDownloadProcessor:
     def test_missing_file(self, tmp_path):
         r = _processor(tmp_path).process(str(tmp_path / "nope.pdf"))
         assert r["status"] == "ERROR"
-
-
-class TestNativeHostProtocol:
-    def _call(self, message):
-        data = json.dumps(message).encode("utf-8")
-        proc = subprocess.run(
-            [sys.executable, str(PROJECT_ROOT / "src" / "integrations" / "native_host.py")],
-            input=struct.pack("<I", len(data)) + data,
-            capture_output=True,
-            timeout=60,
-        )
-        out = proc.stdout
-        (length,) = struct.unpack("<I", out[:4])
-        return json.loads(out[4:4 + length].decode("utf-8"))
-
-    def test_ping(self):
-        r = self._call({"action": "ping", "request_id": 7})
-        assert r["status"] == "OK"
-        assert r["request_id"] == 7
-
-    def test_unknown_action(self):
-        assert self._call({"action": "nope"})["status"] == "ERROR"

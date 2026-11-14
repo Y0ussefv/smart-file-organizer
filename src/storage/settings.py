@@ -9,13 +9,15 @@ from pathlib import Path
 from typing import Any, Dict
 
 from src.core.models import ScanConfig, NamingConvention
+from src.storage.secrets import SECRET_KEYS, SecretStore, default_store
 from src.utils.platform_utils import get_app_data_dir
 
 
 class SettingsManager:
     """Manages application settings stored in a JSON configuration file."""
 
-    def __init__(self, config_path: Path = None):
+    def __init__(self, config_path: Path = None, secret_store: SecretStore = None):
+        self.secrets = secret_store or default_store()
         if config_path:
             self.config_path = config_path
         else:
@@ -38,11 +40,8 @@ class SettingsManager:
             "enable_ocr": False,
             "enable_google_ai": False,
             "ai_provider": "auto",
-            "google_api_key": os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", ""),
             "google_ai_model": "gemini-3.8-flash",
-            "groq_api_key": os.getenv("GROQ_API_KEY", ""),
             "groq_model": "qwen/qwen3.8-27b",
-            "openai_api_key": os.getenv("OPENAI_API_KEY", ""),
             "openai_model": "gpt-5-mini",
             "group_by_domain": True,
             "min_domain_files": 2,
@@ -62,6 +61,20 @@ class SettingsManager:
             except Exception:
                 # If corrupt or unreadable, fall back to defaults
                 pass
+        self._migrate_plaintext_secrets()
+
+    def _migrate_plaintext_secrets(self) -> None:
+        """Keys saved in clear text by versions <= 1.4.1 move to the OS vault (PR-23)."""
+        found = [k for k in SECRET_KEYS if k in self._settings]
+        if not found:
+            return
+        for key in found:
+            value = (self._settings.get(key) or "").strip()
+            if value and not self.secrets.set(key, value):
+                continue  # vault unavailable: the key is dropped below, never kept in clear
+        for key in found:
+            self._settings.pop(key, None)
+        self.save()
 
     def save(self) -> None:
         """Saves current settings to disk."""
@@ -73,17 +86,31 @@ class SettingsManager:
             pass
 
     def get(self, key: str, default: Any = None) -> Any:
+        if key in SECRET_KEYS:
+            return self.secrets.get(key) or default or ""
         return self._settings.get(key, default)
 
-    def set(self, key: str, value: Any) -> None:
+    def set(self, key: str, value: Any) -> bool:
+        """Saves a setting. API keys go to the OS vault; returns False if that failed."""
+        if key in SECRET_KEYS:
+            return self.secrets.set(key, (value or "").strip())
         self._settings[key] = value
         self.save()
+        return True
+
+    def secret(self, key: str, *env_names: str) -> str:
+        """An API key from the vault, or from the environment."""
+        value = self.get(key, "")
+        for env in env_names:
+            value = value or os.getenv(env, "")
+        return (value or "").strip()
 
     def get_scan_config(self, root_path: Path) -> ScanConfig:
         """Constructs a ScanConfig object based on current settings."""
-        groq_key = (self.get("groq_api_key", "") or os.getenv("GROQ_API_KEY", "")).strip()
-        google_key = (self.get("google_api_key", "") or os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")).strip()
-        ai_enabled = self.get("enable_google_ai", False) or bool(groq_key) or bool(google_key)
+        # The scanner never gets a key: its old whole-file AI paths would send original
+        # files. V2 cloud titles go only through src/bee (minimised excerpt + per-file permit).
+        groq_key = google_key = openai_key = ""
+        ai_enabled = False
 
         return ScanConfig(
             root_path=root_path,
@@ -102,7 +129,7 @@ class SettingsManager:
             google_ai_model=self.get("google_ai_model", "gemini-3.8-flash"),
             groq_api_key=groq_key,
             groq_model=self.get("groq_model", "qwen/qwen3.8-27b"),
-            openai_api_key=(self.get("openai_api_key", "") or os.getenv("OPENAI_API_KEY", "")).strip(),
+            openai_api_key=openai_key,
             openai_model=self.get("openai_model", "gpt-5-mini") or "gpt-5-mini",
             group_by_domain=self.get("group_by_domain", True),
             min_domain_files=self.get("min_domain_files", 2),

@@ -2,6 +2,7 @@
 Unit tests for Google AI Vision integration and image preparation.
 """
 
+import pytest
 import io
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -14,6 +15,8 @@ from src.core.ai_vision import (
 )
 from src.core.content_extractors import ImageExtractor
 from src.core.models import ScanConfig
+
+pytestmark = pytest.mark.usefixtures("cloud_on")  # cloud paths, HTTP mocked; blocked by default
 
 
 class TestAIVision:

@@ -55,24 +55,20 @@ It runs on **Windows, macOS, and Linux** with a graphical interface requiring ze
 
 ## 🐝 Background mode: rename every new download (Windows & macOS)
 
-Double-click `BeeOrganizer.exe` (or the Mac app). A bee icon appears near the clock or in the menu bar. It **starts with the computer**, watches your **Downloads** folder and renames every new file from any app (browsers, WhatsApp, Teams, mail…), for example `download (3).pdf` ➔ `26-11 Bee_Diagnostic_Et_Cadrage.pdf`. It has Undo, pause, and optional type folders. See [docs/BACKGROUND_MODE.md](docs/BACKGROUND_MODE.md).
+Double-click `BeeOrganizer.exe` (or the Mac app). A bee icon appears near the clock or in the menu bar. It **starts with the computer**, watches your **Downloads** folder and renames every new file from any app (browsers, WhatsApp, Teams, mail…), for example `download (3).pdf` ➔ `26-11 Rapport_Annuel_BeeStart.pdf`. It has Undo and pause. See [docs/BACKGROUND_MODE.md](docs/BACKGROUND_MODE.md).
+
+**Files only go where you said they can.** A document is filed into `Downloads/Projets/<Project>/` only
+when it clearly belongs to one of **your approved projects**; otherwise it stays in Downloads, renamed, with
+a proposal when there is a possible match. New projects are proposed, never created on their own.
 
 ---
 
-## 🎯 OpenAI Precise Titles (every file)
+## 🔒 Privacy by design (2.0)
 
-Add an OpenAI API key in **Settings → OpenAI Precise Titles** (or set `OPENAI_API_KEY`). Every file is then read and titled exactly from its content, for example `scan001.pdf` ➔ `Delfa_Invoice_2026-0412_Office_Supplies.pdf`. The default model is `gpt-5-mini`, and you can change it. File content is sent to OpenAI, one paid request per file. Without a key, everything stays 100% local.
-
----
-
-## 🌐 Browser Extension: BeeOrganizer (standalone)
-
-A Chrome / Edge / Brave extension in [`browser_extension/`](browser_extension/) gives every download an exact name **as it downloads**. It doesn't need Python or the desktop app. It reads the file (PDF, Word, PowerPoint, Excel, images, text, zip) and asks OpenAI with your key for a precise title, for example `download (3).pdf` ➔ `Delfa_Invoice_2026-0412_Office_Supplies.pdf`.
-
-1. `chrome://extensions` → Developer mode → **Load unpacked** → pick `browser_extension/`
-2. Click the icon, paste your OpenAI API key, and click **Test**.
-
-See [docs/BROWSER_EXTENSION.md](docs/BROWSER_EXTENSION.md) for options, limits and how to publish it to the Chrome Web Store.
+Every file is checked **on the computer** first and classified P0 (public), P1 (confidential), P2 (very
+sensitive) or INCONNU (unreadable). Cloud analysis is **off by default**; when you turn it on, only a short
+redacted excerpt of P0 documents can be sent to OpenAI. API keys are kept in the system vault. Details:
+[docs/PRIVACY.md](docs/PRIVACY.md).
 
 ---
 
