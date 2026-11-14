@@ -13,6 +13,8 @@ import re
 from pathlib import Path
 from typing import Optional, Tuple
 import requests
+
+from src.privacy import cloud_gate
 from PIL import Image
 
 # Supported AI Vision models
@@ -117,7 +119,7 @@ def analyze_image_with_groq(
             "temperature": 0.2
         }
 
-        response = requests.post(url, headers=headers, json=payload, timeout=timeout_seconds)
+        response = cloud_gate.post(url, headers=headers, json=payload, timeout=timeout_seconds)
 
         if response.status_code != 200:
             try:
@@ -202,13 +204,13 @@ def analyze_image_with_google(
             }
         }
 
-        response = requests.post(url, json=payload, timeout=timeout_seconds)
+        response = cloud_gate.post(url, json=payload, timeout=timeout_seconds)
 
         if response.status_code == 404:
             for fallback_model in ("gemini-3.8-flash", "gemini-flash-latest", "gemini-3.5-flash"):
                 if fallback_model != model:
                     fb_url = f"https://generativelanguage.googleapis.com/v1beta/models/{fallback_model}:generateContent?key={clean_key}"
-                    fb_resp = requests.post(fb_url, json=payload, timeout=timeout_seconds)
+                    fb_resp = cloud_gate.post(fb_url, json=payload, timeout=timeout_seconds)
                     if fb_resp.status_code == 200:
                         response = fb_resp
                         break
@@ -291,7 +293,7 @@ def verify_groq_api_key(api_key: str, model: str = DEFAULT_GROQ_MODEL) -> Tuple[
     }
 
     try:
-        resp = requests.post(url, headers=headers, json=payload, timeout=10)
+        resp = cloud_gate.post(url, headers=headers, json=payload, timeout=10)
         if resp.status_code == 200:
             return True, f"Groq Cloud API Key is valid and successfully connected to {model or DEFAULT_GROQ_MODEL}!"
         else:
@@ -320,7 +322,7 @@ def verify_google_api_key(api_key: str, model: str = DEFAULT_GEMINI_MODEL) -> Tu
     }
 
     try:
-        resp = requests.post(url, json=payload, timeout=10)
+        resp = cloud_gate.post(url, json=payload, timeout=10)
         if resp.status_code == 200:
             return True, f"Google API Key is valid and successfully connected to {model}!"
         else:
@@ -333,7 +335,7 @@ def verify_google_api_key(api_key: str, model: str = DEFAULT_GEMINI_MODEL) -> Tu
                 for fb in ("gemini-3.8-flash", "gemini-flash-latest", "gemini-3.5-flash"):
                     if fb != model:
                         fb_url = f"https://generativelanguage.googleapis.com/v1beta/models/{fb}:generateContent?key={clean_key}"
-                        fb_resp = requests.post(fb_url, json=payload, timeout=10)
+                        fb_resp = cloud_gate.post(fb_url, json=payload, timeout=10)
                         if fb_resp.status_code == 200:
                             return True, f"Google API Key is valid and successfully connected ({fb})!"
 
@@ -400,7 +402,7 @@ def analyze_document_text_with_groq(
     }
 
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=timeout_seconds)
+        response = cloud_gate.post(url, headers=headers, json=payload, timeout=timeout_seconds)
         if response.status_code != 200:
             try:
                 err_data = response.json()
@@ -461,7 +463,7 @@ def analyze_document_text_with_google(
     }
 
     try:
-        response = requests.post(url, json=payload, timeout=timeout_seconds)
+        response = cloud_gate.post(url, json=payload, timeout=timeout_seconds)
         if response.status_code != 200:
             return None, f"Google API Error ({response.status_code})"
         result_json = response.json()
@@ -553,7 +555,7 @@ def analyze_image_bytes_with_groq(
             "temperature": 0.2
         }
 
-        response = requests.post(url, headers=headers, json=payload, timeout=timeout_seconds)
+        response = cloud_gate.post(url, headers=headers, json=payload, timeout=timeout_seconds)
         if response.status_code != 200:
             try:
                 err_data = response.json()

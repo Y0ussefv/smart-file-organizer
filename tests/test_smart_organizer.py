@@ -16,6 +16,8 @@ from src.storage.history import HistoryManager
 from src.storage.settings import SettingsManager
 from src.watcher.download_watcher import DownloadWatcher
 
+pytestmark = pytest.mark.usefixtures("cloud_on")  # cloud paths, HTTP mocked; blocked by default
+
 YM = datetime.now().strftime("%y-%m")
 
 
@@ -24,8 +26,8 @@ def env(tmp_path):
     dl = tmp_path / "Downloads"
     dl.mkdir()
     settings = SettingsManager(tmp_path / "settings.json")
-    settings._settings.update({"openai_api_key": "sk-test", "groq_api_key": "", "google_api_key": "",
-                               "enable_google_ai": False, "watcher_date_prefix": True})
+    settings._settings.update({"enable_google_ai": False, "watcher_date_prefix": True})
+    settings.set("openai_api_key", "sk-test")  # stored in the (in-memory) secret vault
     history = HistoryManager(tmp_path / "history.sqlite3")
     # Per-file OpenAI titles are not under test here: make them fail fast -> local titles
     with patch("src.core.openai_titler.generate_precise_title", return_value=(None, "mocked", {})):

@@ -7,7 +7,6 @@ that watches the Downloads folder and renames every new download.
 
 import logging
 import sys
-import threading
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -16,7 +15,6 @@ from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QMessageBox, QSystemTrayIcon
 
 from src.integrations.download_processor import DownloadProcessor
-from src.organizer.smart_organizer import SmartOrganizer
 from src.storage.settings import SettingsManager
 from src.utils.platform_utils import get_app_data_dir, get_downloads_dir
 from src.watcher import autostart
@@ -29,10 +27,13 @@ RECENT_LIMIT = 10
 
 DEFAULTS = {
     "watcher_date_prefix": True,     # "26-11 Title.pdf"
-    "watcher_type_folders": False,   # Documents/, Images/ ...
-    "watcher_smart_folders": True,   # project folders like a human (needs OpenAI key)
     "autostart_asked": False,
 }
+
+# Spec V2 (rule RN / §4.3 / AC-04): the watcher only renames. A download is never moved
+# and no folder is created without the user's explicit validation; files whose project
+# is not certain stay at the root of Downloads. Project filing comes back in V2 with
+# the approved-project catalog and the proposals screen.
 
 
 def _setting(settings: SettingsManager, key: str):
@@ -42,8 +43,6 @@ def _setting(settings: SettingsManager, key: str):
 class _Bridge(QObject):
     """Carries watcher events from the worker thread to the Qt (GUI) thread."""
     event = Signal(dict)
-    plan_ready = Signal(object)
-    organize_done = Signal(dict)
 
 
 class TrayController(QObject):
@@ -57,9 +56,6 @@ class TrayController(QObject):
 
         self.bridge = _Bridge()
         self.bridge.event.connect(self._on_event)
-        self.bridge.plan_ready.connect(self._confirm_plan)
-        self.bridge.organize_done.connect(self._on_organized)
-        self._organizing = False
         self.watcher = DownloadWatcher(self.folder, self._process, self.bridge.event.emit,
                                        process_dir=self._process_dir)
 
@@ -79,44 +75,22 @@ class TrayController(QObject):
 
     # ---- processing (worker thread) -------------------------------------
     def _process(self, path: Path) -> Dict:
-        settings = SettingsManager()  # re-read: picks up key / option changes
+        settings = SettingsManager()  # re-read: picks up option changes
         result = DownloadProcessor(settings=settings).process(
             str(path),
-            folder_mode="type" if _setting(settings, "watcher_type_folders") else "none",
+            folder_mode="none",  # rename in place, never move (spec V2 §4.3)
             add_date_prefix=bool(_setting(settings, "watcher_date_prefix")),
             date_prefix_format="%y-%m",
             date_prefix_separator=" ",
         )
         result["session_ids"] = [result["session_id"]] if result.get("session_id") else []
-
-        # Like a human: file it into the matching project folder, if there is one.
-        if (_setting(settings, "watcher_smart_folders") and not result.get("subfolder")
-                and result.get("status") in ("RENAMED", "UNCHANGED")):
-            cur = Path(result.get("new_path") or path)
-            if cur.exists() and cur.parent == self.folder:
-                organizer = SmartOrganizer(self.folder, settings=settings)
-                plan = organizer.plan_placement(cur, title=result.get("detected_title") or "",
-                                                file_type=result.get("file_type") or "")
-                if plan.moves:
-                    placed = organizer.apply(plan, label="Placement")
-                    if placed.get("session_id"):
-                        dst = plan.moves[0].dst
-                        result["session_ids"].append(placed["session_id"])
-                        result["new_path"] = str(dst)
-                        result["placed_in"] = str(dst.parent.relative_to(self.folder))
-                        result["status"] = "RENAMED"
         return result
 
     def _process_dir(self, path: Path) -> Dict:
-        settings = SettingsManager()
-        if not _setting(settings, "watcher_smart_folders"):
-            return {"status": "SKIPPED", "original_name": path.name, "new_name": path.name}
-        result = SmartOrganizer(self.folder, settings=settings).organize_folder(path)
-        result["session_ids"] = [result["session_id"]] if result.get("session_id") else []
-        result["new_name"] = Path(result["folders"][0]).name if result.get("folders") else path.name
-        result["new_path"] = result["folders"][0] if result.get("folders") else str(path)
-        result["is_folder"] = True
-        return result
+        # A received folder keeps its structure: unwrapping, merging or splitting it
+        # needs a preview and the user's consent (spec V2 §5.3), so nothing happens here.
+        return {"status": "SKIPPED", "original_name": path.name, "new_name": path.name,
+                "message": "Folder left as it is"}
 
     # ---- UI ----------------------------------------------------------------
     def _build_menu(self) -> None:
@@ -139,10 +113,6 @@ class TrayController(QObject):
         undo.triggered.connect(self.undo_last)
         m.addAction(undo)
 
-        organize = QAction("Organize Downloads now…", m)
-        organize.triggered.connect(self.organize_now)
-        m.addAction(organize)
-
         open_folder = QAction("Open Downloads folder", m)
         open_folder.triggered.connect(lambda: self._reveal(self.folder, select=False))
         m.addAction(open_folder)
@@ -153,22 +123,12 @@ class TrayController(QObject):
         prefix.toggled.connect(lambda v: self.settings.set("watcher_date_prefix", v))
         m.addAction(prefix)
 
-        smart = QAction("Smart project folders (like a human)", m, checkable=True)
-        smart.setChecked(bool(_setting(self.settings, "watcher_smart_folders")))
-        smart.toggled.connect(lambda v: self.settings.set("watcher_smart_folders", v))
-        m.addAction(smart)
-
-        folders = QAction("Sort into type folders (Documents, Images…)", m, checkable=True)
-        folders.setChecked(bool(_setting(self.settings, "watcher_type_folders")))
-        folders.toggled.connect(lambda v: self.settings.set("watcher_type_folders", v))
-        m.addAction(folders)
-
         self.autostart_action = QAction("Start when the computer starts", m, checkable=True)
         self.autostart_action.setChecked(autostart.is_enabled())
         self.autostart_action.toggled.connect(self._toggle_autostart)
         m.addAction(self.autostart_action)
 
-        settings_action = QAction("Open BeeOrganizer (settings, OpenAI key)…", m)
+        settings_action = QAction("Open BeeOrganizer…", m)
         settings_action.triggered.connect(self.open_window)
         m.addAction(settings_action)
         m.addSeparator()
@@ -244,12 +204,6 @@ class TrayController(QObject):
             )
             if answer == QMessageBox.StandardButton.Yes:
                 self.autostart_action.setChecked(True)
-        if not (self.settings.get("openai_api_key", "") or "").strip():
-            self.tray.showMessage(
-                "Add your OpenAI key for exact names",
-                "Open BeeOrganizer → Settings → OpenAI Precise Titles.",
-                QSystemTrayIcon.MessageIcon.Information, 8000,
-            )
 
     def undo_last(self) -> None:
         last = next((r for r in self.recent if r.get("session_ids") or r.get("session_id")), None)
@@ -270,63 +224,6 @@ class TrayController(QObject):
         self.tray.showMessage("Undone" if ok else "Undo partly failed",
                               "; ".join(r.get("message", "") for r in results)[:250])
 
-    # ---- Organize Downloads now ----------------------------------------------------
-    def organize_now(self) -> None:
-        if self._organizing:
-            self.tray.showMessage("BeeOrganizer", "Already organizing, please wait…")
-            return
-        self._organizing = True
-        self.tray.showMessage("BeeOrganizer", "Reading your Downloads to plan the organization…")
-
-        def work():
-            try:
-                plan = SmartOrganizer(self.folder).plan_downloads()
-            except Exception as e:
-                logger.exception("Organize plan failed")
-                plan = e
-            self.bridge.plan_ready.emit(plan)
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _confirm_plan(self, plan) -> None:
-        if isinstance(plan, Exception):
-            self._organizing = False
-            QMessageBox.warning(None, "BeeOrganizer", f"Could not plan the organization:\n{plan}")
-            return
-        if not plan.moves:
-            self._organizing = False
-            QMessageBox.information(None, "BeeOrganizer",
-                                    f"Your Downloads already look organized.\n\n{plan.explanation}")
-            return
-        box = QMessageBox(QMessageBox.Icon.Question, "Organize Downloads",
-                          f"{plan.summary()}\n\n{plan.explanation}\n\nApply? You can undo it from the menu.",
-                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        box.setDetailedText(plan.details(200))
-        if box.exec() != QMessageBox.StandardButton.Yes:
-            self._organizing = False
-            return
-
-        def work():
-            self.watcher.pause(True)
-            try:
-                result = SmartOrganizer(self.folder).apply(plan, label="Organize Downloads")
-                for f in result.get("folders", []):
-                    self.watcher.ignore(Path(f).name)
-                for mv in plan.moves:
-                    self.watcher.ignore(mv.src.name)
-            finally:
-                self.watcher.pause(False)
-            result.update(is_folder=True, original_name="Downloads",
-                          new_name=f"{len(result.get('folders', []))} folders",
-                          session_ids=[result["session_id"]] if result.get("session_id") else [])
-            self.bridge.organize_done.emit(result)
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _on_organized(self, result: Dict) -> None:
-        self._organizing = False
-        self._on_event(result)
-
     def open_window(self) -> None:
         from src.app.main_window import MainWindow
         if self.window is None:
@@ -339,9 +236,9 @@ class TrayController(QObject):
 
     @staticmethod
     def _reveal(path: Path, select: bool = True) -> None:
-        from src.integrations.native_host import _reveal
+        from src.utils.platform_utils import reveal_in_file_manager
         try:
-            _reveal(str(path), select=select)
+            reveal_in_file_manager(path, select=select)
         except Exception as e:
             logger.warning("Cannot open %s: %s", path, e)
 

@@ -18,6 +18,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
+from src.privacy import cloud_gate
+
 OPENAI_URL = "https://api.openai.com/v1/chat/completions"
 DEFAULT_OPENAI_MODEL = "gpt-5-mini"
 SUGGESTED_OPENAI_MODELS = ["gpt-5-mini", "gpt-5", "gpt-4.1-mini", "gpt-4.1", "gpt-4o-mini"]
@@ -245,7 +247,7 @@ def _is_reasoning_model(model: str) -> bool:
 
 
 def _post(api_key: str, payload: Dict[str, Any], timeout: int) -> requests.Response:
-    return requests.post(
+    return cloud_gate.post(
         OPENAI_URL,
         headers={"Authorization": f"Bearer {api_key.strip()}", "Content-Type": "application/json"},
         json=payload,
@@ -372,7 +374,7 @@ def verify_openai_api_key(api_key: str, model: str = DEFAULT_OPENAI_MODEL) -> Tu
     if not (api_key or "").strip():
         return False, "Please enter an OpenAI API key."
     try:
-        resp = requests.get(
+        resp = cloud_gate.get(
             f"https://api.openai.com/v1/models/{model or DEFAULT_OPENAI_MODEL}",
             headers={"Authorization": f"Bearer {api_key.strip()}"},
             timeout=15,

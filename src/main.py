@@ -4,7 +4,6 @@ Main application entry point for Smart File Organizer / BeeOrganizer.
     SmartFileOrganizer.exe                    open the window + watch Downloads in the background
     SmartFileOrganizer.exe --watch            background only (used at computer start-up)
     SmartFileOrganizer.exe --no-watch         window only (classic mode)
-    SmartFileOrganizer.exe --install-browser-bridge / --uninstall-browser-bridge
 """
 
 import sys
@@ -50,14 +49,6 @@ def _run_window_only() -> None:
 
 def main():
     args = sys.argv[1:]
-
-    if "--install-browser-bridge" in args or "--uninstall-browser-bridge" in args:
-        from src.integrations.install_native_host import main as bridge_main
-        sys.exit(bridge_main(args))
-    if "--native-host" in args:
-        from src.integrations.native_host import main as host_main
-        host_main()
-        sys.exit(0)
 
     from src.utils.logging_config import setup_logging
     setup_logging(log_file_name="smart_file_organizer.log")

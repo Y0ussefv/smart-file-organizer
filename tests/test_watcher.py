@@ -15,7 +15,7 @@ from src.watcher.download_watcher import DownloadWatcher, is_candidate
 
 def _processor(tmp_path):
     s = SettingsManager(tmp_path / "settings.json")
-    s._settings.update({"groq_api_key": "", "google_api_key": "", "openai_api_key": "", "enable_google_ai": False})
+    s._settings.update({"enable_google_ai": False})
     return DownloadProcessor(settings=s, history=HistoryManager(tmp_path / "h.sqlite3"))
 
 

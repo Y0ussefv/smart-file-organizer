@@ -5,6 +5,19 @@ All notable changes to the **Smart File Organizer & Intelligent File Renamer** w
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.2] - 2026-11-14
+
+First step of the V2 specification (hybrid filing and GDPR): safe, local-only behaviour.
+
+### Changed
+- **Local only**: no file, text, image, file name or metadata is sent to OpenAI, Groq or Gemini, even if a key was entered before. Every external AI request goes through one gate that blocks it (`src/privacy/cloud_gate.py`). The AI settings are locked with an explanation.
+- **Rename only**: the background watcher renames downloads in Downloads and never creates a folder or moves a file. Received folders are left as they are (no automatic unwrapping).
+- **API keys in the system vault** (macOS Keychain / Windows Credential Manager via `keyring`). Keys saved in clear text in `settings.json` by older versions are moved to the vault and removed from the file.
+
+### Removed
+- The Chrome extension and its native-messaging bridge (they sent whole files to OpenAI). The desktop app already renames downloads from every browser.
+- Tray options *Smart project folders*, *Sort into type folders* and *Organize Downloads now…*. Project filing comes back in V2 with approved projects and a preview before any move.
+
 ## [1.4.1] - 2026-11-08
 
 ### Fixed

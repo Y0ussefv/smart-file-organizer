@@ -5,7 +5,7 @@ Analyzes a single freshly-downloaded file with the same engine the desktop app u
 (content extractors + AI vision + title generator), picks a safe collision-free name,
 optionally sorts it into a subfolder, and renames it with full undo history.
 
-Used by the browser native-messaging host (src/integrations/native_host.py).
+Used by the background Downloads watcher (src/watcher/tray_app.py).
 """
 
 import time

@@ -4,7 +4,6 @@ Convenience launcher for Smart File Organizer / BeeOrganizer.
     python main.py                              # window + background Downloads watcher
     python main.py --watch                      # background watcher only (start-up mode)
     python main.py --no-watch                   # window only
-    python main.py --install-browser-bridge     # (optional) Chrome/Edge native bridge
 """
 
 import sys

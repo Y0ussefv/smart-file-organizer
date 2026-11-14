@@ -13,6 +13,9 @@ imageio-ffmpeg>=0.4.8
 # OpenAI / AI vision HTTP calls
 requests>=2.31.0
 
+# API keys in the OS vault (macOS Keychain / Windows Credential Manager)
+keyring>=25.0.0
+
 # Packaging & Distribution
 pyinstaller>=6.0.0
 

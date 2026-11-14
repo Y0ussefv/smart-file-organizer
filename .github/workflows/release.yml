@@ -154,13 +154,6 @@ jobs:
     if: ${{ always() && needs.windows.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ env.BUILD_REF }}
-
-      - name: Chrome extension zip
-        run: python3 build_scripts/package_extension.py
-
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -168,7 +161,6 @@ jobs:
 
       - name: Checksums
         run: |
-          cp dist/BeeOrganizer.zip artifacts/BeeOrganizer-Chrome-Extension.zip
           cd artifacts && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
 
       - name: Attach files to the release

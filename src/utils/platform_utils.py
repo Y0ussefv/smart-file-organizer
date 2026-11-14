@@ -155,3 +155,21 @@ def is_safe_path(target_path: Path, base_directory: Optional[Path] = None) -> bo
         return True
     except (OSError, ValueError):
         return False
+
+
+def reveal_in_file_manager(path, select: bool = True) -> bool:
+    """Shows a file in Explorer / Finder (selected), or opens a folder. False if it no longer exists."""
+    import subprocess
+    p = Path(path)
+    if not p.exists():
+        return False
+    if sys.platform.startswith("win"):
+        if select:
+            subprocess.Popen(["explorer", "/select,", str(p)])
+        else:
+            os.startfile(str(p))  # type: ignore[attr-defined]
+    elif sys.platform == "darwin":
+        subprocess.Popen(["open", "-R", str(p)] if select else ["open", str(p)])
+    else:
+        subprocess.Popen(["xdg-open", str(p.parent if select else p)])
+    return True
