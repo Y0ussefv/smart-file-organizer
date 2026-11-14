@@ -57,15 +57,18 @@ It runs on **Windows, macOS, and Linux** with a graphical interface requiring ze
 
 Double-click `BeeOrganizer.exe` (or the Mac app). A bee icon appears near the clock or in the menu bar. It **starts with the computer**, watches your **Downloads** folder and renames every new file from any app (browsers, WhatsApp, Teams, mail…), for example `download (3).pdf` ➔ `26-11 Rapport_Annuel_BeeStart.pdf`. It has Undo and pause. See [docs/BACKGROUND_MODE.md](docs/BACKGROUND_MODE.md).
 
-**Rename only.** Downloads stay in the Downloads folder: BeeOrganizer never creates a folder or moves a file on its own, and received folders are left exactly as they are.
+**Files only go where you said they can.** A document is filed into `Downloads/Projets/<Project>/` only
+when it clearly belongs to one of **your approved projects**; otherwise it stays in Downloads, renamed, with
+a proposal when there is a possible match. New projects are proposed, never created on their own.
 
 ---
 
-## 🔒 Privacy: local only (1.4.2)
+## 🔒 Privacy by design (2.0)
 
-BeeOrganizer reads and names files **on your computer**. No file, text, image, file name or metadata is sent to OpenAI or any other service, even if an API key was entered before. API keys are kept in the system vault (macOS Keychain / Windows Credential Manager), never in a settings file.
-
-Cloud titles will come back in version 2, **off by default**, behind a local check that blocks personal and confidential documents first (see the V2 specification).
+Every file is checked **on the computer** first and classified P0 (public), P1 (confidential), P2 (very
+sensitive) or INCONNU (unreadable). Cloud analysis is **off by default**; when you turn it on, only a short
+redacted excerpt of P0 documents can be sent to OpenAI. API keys are kept in the system vault. Details:
+[docs/PRIVACY.md](docs/PRIVACY.md).
 
 ---
 

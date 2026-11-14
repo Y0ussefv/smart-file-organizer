@@ -373,11 +373,16 @@ def chat_json(
 def verify_openai_api_key(api_key: str, model: str = DEFAULT_OPENAI_MODEL) -> Tuple[bool, str]:
     if not (api_key or "").strip():
         return False, "Please enter an OpenAI API key."
+    # Sends the key only, no file data; still needs cloud analysis to be switched on.
+    permit = cloud_gate.issue("key-check", cloud_gate.PURPOSE_KEY_CHECK)
+    if permit is None:
+        return False, "Turn on cloud analysis in Privacy first."
     try:
         resp = cloud_gate.get(
             f"https://api.openai.com/v1/models/{model or DEFAULT_OPENAI_MODEL}",
             headers={"Authorization": f"Bearer {api_key.strip()}"},
             timeout=15,
+            permit=permit,
         )
     except requests.exceptions.RequestException as e:
         return False, f"Network error: {e}"

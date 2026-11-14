@@ -142,7 +142,8 @@ class TestRenameOnly:
         source = Path(tray_app.__file__).read_text(encoding="utf-8")
         assert "SmartOrganizer" not in source
         assert "watcher_smart_folders" not in source and "watcher_type_folders" not in source
-        assert 'folder_mode="none"' in source
+        # V2: every download goes through the pipeline (approved projects only, T01-T28)
+        assert "self.pipeline.process_new_item(path)" in source
 
 
 class TestInvisibleCharacters:

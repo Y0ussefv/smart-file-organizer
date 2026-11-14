@@ -4,7 +4,7 @@
 ; Output: dist\BeeOrganizer-Setup.exe
 
 #ifndef AppVersion
-  #define AppVersion "1.4.2"
+  #define AppVersion "2.0.0"
 #endif
 #define AppName "BeeOrganizer"
 #define AppPublisher "RNJ"

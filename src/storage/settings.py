@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any, Dict
 
 from src.core.models import ScanConfig, NamingConvention
-from src.privacy.cloud_gate import cloud_allowed
 from src.storage.secrets import SECRET_KEYS, SecretStore, default_store
 from src.utils.platform_utils import get_app_data_dir
 
@@ -108,15 +107,10 @@ class SettingsManager:
 
     def get_scan_config(self, root_path: Path) -> ScanConfig:
         """Constructs a ScanConfig object based on current settings."""
-        if cloud_allowed():
-            groq_key = self.secret("groq_api_key", "GROQ_API_KEY")
-            google_key = self.secret("google_api_key", "GEMINI_API_KEY", "GOOGLE_API_KEY")
-            openai_key = self.secret("openai_api_key", "OPENAI_API_KEY")
-            ai_enabled = self.get("enable_google_ai", False) or bool(groq_key) or bool(google_key)
-        else:
-            # Local only (spec PR-01/PR-02): no key reaches the scan, so no cloud call is even attempted.
-            groq_key = google_key = openai_key = ""
-            ai_enabled = False
+        # The scanner never gets a key: its old whole-file AI paths would send original
+        # files. V2 cloud titles go only through src/bee (minimised excerpt + per-file permit).
+        groq_key = google_key = openai_key = ""
+        ai_enabled = False
 
         return ScanConfig(
             root_path=root_path,

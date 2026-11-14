@@ -5,6 +5,35 @@ All notable changes to the **Smart File Organizer & Intelligent File Renamer** w
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-11-14
+
+BeeOrganizer V2 (specification 2.1 of 13 November 2026), phases P0 and P1: hybrid filing and privacy by design.
+
+### Added
+- **Local sensitivity check** before any network call (`src/bee/sensitivity.py`): P0 / P1 / P2 / INCONNU with
+  reason codes only (passport, ID, national numbers, residence permits, health, criminal records, IBAN, e-mail,
+  phone, address, HR, contracts and invoices, confidential clauses). Unreadable, scanned, image, video,
+  archive or encrypted files are INCONNU. Instructions written inside documents have no effect.
+- **Optional cloud titles, off by default** (`src/bee/cloud_title.py`, `src/privacy/cloud_gate.py`): only for
+  P0 documents, from a redacted excerpt (no file, name, path, image or metadata), with a one-time permit per
+  file, `store=false`, a live check of the switch before sending, and validation of the answer.
+- **Approved project catalog** and matching against all projects (`src/bee/matcher.py`): automatic filing only
+  with score >= 95, a 15-point lead, specific evidence and no contradiction; otherwise a proposal or the file
+  stays in Downloads. Never "the last folder".
+- **New-project proposals** when 3 distinct files name the same unknown project; nothing is created before you
+  accept.
+- **Transactional moves and full Undo** (`src/bee/mover.py`): depth limit `Projets/<project>/<category>`,
+  symlink and path checks, rollback, no orphan folders, Undo of name and place.
+- **Ledger** (`src/bee/ledger.py`): files, decisions, operations, proposals, privacy events and cloud choice,
+  without any document text; automatic purge (events 30 days, Undo 90 days) and manual purge.
+- Tray: **Proposals…**, **Projects…**, **Privacy and cloud analysis…**; confidential names are hidden in
+  notifications. Crash recovery at start-up.
+- Acceptance tests T01–T28 (except T09/T10, phase P2) and RG01–RG16 with network interception.
+- `docs/PRIVACY.md`: data flows, storage, retention, roles.
+
+### Removed
+- The old "smart folders" organizer, which created folders without validation.
+
 ## [1.4.2] - 2026-11-14
 
 First step of the V2 specification (hybrid filing and GDPR): safe, local-only behaviour.

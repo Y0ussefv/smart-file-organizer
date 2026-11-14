@@ -37,14 +37,31 @@ Download `BeeOrganizer-mac-AppleSilicon.dmg` (M1/M2/M3/M4 Macs) or `BeeOrganizer
 3. Allow access to the **Downloads** folder when macOS asks.
 4. Answer **Yes** to "Start automatically…". This creates `~/Library/LaunchAgents/com.rnj.beeorganizer.plist`.
 
-## Rename only, local only (1.4.2)
+## How a download is handled (2.0)
 
-- **Downloads stay where they are.** BeeOrganizer renames them in the Downloads folder; it never creates a folder or moves a file on its own.
-- **Received folders are left as they are** (an unzipped archive, a copied folder…): no unwrapping, merging or rearranging.
-- **Nothing leaves the computer.** Names come from local analysis (document title, headings, metadata). No content is sent to OpenAI or any other service.
-- API keys entered in older versions are moved to the system vault (Keychain / Credential Manager) and removed from `settings.json`.
+1. **Local check.** BeeOrganizer reads the file on the computer and classifies it: **P0** public, **P1**
+   confidential / personal, **P2** very sensitive, **INCONNU** unreadable. See [PRIVACY.md](PRIVACY.md).
+2. **Exact name** `YY-MM Title.ext`, from the content. Nothing invented: without a reliable title the
+   original name is kept. Never overwrites (`_2`, `_3`…).
+3. **Filing, only into approved projects** (🐝 → **Projects…**), compared with **all** of them, never "the
+   last folder":
+   * strong and specific evidence (the project name **and** one of its references, no contradiction, clear
+     lead over any other project) → moved to `Downloads/Projets/<Project>/` (or an approved category);
+   * possible match → stays in Downloads, with a **proposal** (🐝 → **Proposals…**);
+   * no match → stays in Downloads, renamed.
+4. **New project?** When 3 different files clearly name the same unknown project (e.g. "Projet Delfa"),
+   BeeOrganizer **proposes** it, with the list of files and the target folder. Nothing is created before
+   you accept. Refused proposals leave everything as it is.
+5. **Undo** puts back the name **and** the place, and removes folders the app created if they are empty.
 
-Project folders come back in version 2, **only with your validation**: approved projects, a preview before anything moves, and files staying in Downloads when in doubt.
+Folders you receive (unzipped archives, copied folders, software projects) are **left as they are**.
+At most two levels are ever created: `Projets/<Project>/<Category>/file`.
+
+## Cloud analysis (optional, off by default)
+
+🐝 → **Privacy and cloud analysis…** explains what may be sent and lets you turn it on. Only a short,
+redacted excerpt of **P0 (public)** documents can be sent to OpenAI to get a more precise name. P1, P2 and
+INCONNU documents, and every file of a project marked **always local**, never leave the computer.
 
 ## Tray / menu-bar menu
 
@@ -52,7 +69,10 @@ Project folders come back in version 2, **only with your validation**: approved 
 |---|---|
 | Pause renaming | Stops renaming until you untick it |
 | Recent renames | Last 10 renames. Click one to show it in Explorer / Finder |
-| Undo last rename | Puts back the last file or folder exactly as it was |
+| Undo last rename | Puts back the last file exactly as it was (name and place) |
+| Proposals… | Suggested filings and new projects: Accept, Choose another project, Leave in Downloads |
+| Projects… | Approved projects: name, aliases, references, exclusions, always local, categories |
+| Privacy and cloud analysis… | Cloud switch (off by default), OpenAI key (system vault), purge history |
 | Open Downloads folder | |
 | Add date prefix (26-11 …) | On by default |
 | Start when the computer starts | Turns automatic start on or off |
